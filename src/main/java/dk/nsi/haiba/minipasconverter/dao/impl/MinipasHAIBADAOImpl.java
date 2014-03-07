@@ -57,12 +57,11 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     @Override
     public void createKoderFromSksUbeOpr(MinipasTADM minipasTADM, Collection<MinipasTSKSUBE_OPR> ubeoprs) {
         for (MinipasTSKSUBE_OPR m : ubeoprs) {
-            String c_kodeart = "na";
             jdbc.update(
                     "INSERT INTO "
                             + tableprefix
                             + "T_KODER (V_RECNUM, C_KODE, C_TILKODE, C_KODEART, D_PDTO, C_PSGH, C_PAFD, V_TYPE) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    m.getIdnummer(), m.getC_opr(), m.getC_tilopr(), c_kodeart, m.getIndberetningsdato(),
+                    m.getIdnummer(), m.getC_opr(), m.getC_tilopr(), m.getC_oprart(), m.getIndberetningsdato(),
                     minipasTADM.getC_sgh(), minipasTADM.getC_afd(), m.getType());
         }
     }
@@ -78,12 +77,11 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     @Override
     public void createKoderFromDiag(MinipasTADM minipasTADM, Collection<MinipasTDIAG> diags) {
         for (MinipasTDIAG m : diags) {
-            String c_kodeart = "na";
             jdbc.update(
                     "INSERT INTO "
                             + tableprefix
                             + "T_KODER (V_RECNUM, C_KODE, C_TILKODE, C_KODEART, D_PDTO, C_PSGH, C_PAFD, V_TYPE) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), c_kodeart, m.getIndberetningsdato(),
+                    m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), m.getC_diagtype(), m.getIndberetningsdato(),
                     minipasTADM.getC_sgh(), minipasTADM.getC_afd(), "dia");
         }
     }
