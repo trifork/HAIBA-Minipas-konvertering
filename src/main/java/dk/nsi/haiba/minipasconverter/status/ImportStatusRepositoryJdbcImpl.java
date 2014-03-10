@@ -37,7 +37,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
-import org.springframework.transaction.annotation.Transactional;
 
 import dk.nsi.haiba.minipasconverter.dao.impl.CommonDAO;
 
@@ -59,24 +58,21 @@ public class ImportStatusRepositoryJdbcImpl extends CommonDAO implements ImportS
     public ImportStatusRepositoryJdbcImpl(String dialect) {
         super(dialect);
     }
-    
+
     @Override
-    @Transactional(value = "haibaTransactionManager")
     public void importStartedAt(DateTime startTime) {
         aLog.debug("Starting import");
-        haibaJdbcTemplate.update("INSERT INTO " + tableprefix + "MedicinImporterStatus (StartTime) values (?)",
+        haibaJdbcTemplate.update("INSERT INTO " + tableprefix + "MinipasImporterStatus (StartTime) values (?)",
                 startTime.toDate());
     }
 
     @Override
-    @Transactional(value = "haibaTransactionManager")
     public void importEndedWithSuccess(DateTime endTime) {
         aLog.debug("Import ended with success");
         importEndedAt(endTime, ImportStatus.Outcome.SUCCESS, null);
     }
 
     @Override
-    @Transactional(value = "haibaTransactionManager")
     public void importEndedWithFailure(DateTime endTime, String errorMessage) {
         aLog.debug("Import ended with failure");
         if (errorMessage != null && errorMessage.length() > 200) {
@@ -88,10 +84,10 @@ public class ImportStatusRepositoryJdbcImpl extends CommonDAO implements ImportS
     private void importEndedAt(DateTime endTime, ImportStatus.Outcome outcome, String errorMessage) {
         String sql = null;
         if (MYSQL.equals(getDialect())) {
-            sql = "SELECT Id from MedicinImporterStatus ORDER BY StartTime DESC LIMIT 1";
+            sql = "SELECT Id from MinipasImporterStatus ORDER BY StartTime DESC LIMIT 1";
         } else {
             // MSSQL
-            sql = "SELECT Top 1 Id from " + tableprefix + "MedicinImporterStatus ORDER BY StartTime DESC";
+            sql = "SELECT Top 1 Id from " + tableprefix + "MinipasImporterStatus ORDER BY StartTime DESC";
         }
 
         Long newestOpenId;
@@ -103,7 +99,7 @@ public class ImportStatusRepositoryJdbcImpl extends CommonDAO implements ImportS
         }
 
         haibaJdbcTemplate.update("UPDATE " + tableprefix
-                + "MedicinImporterStatus SET EndTime=?, Outcome=?, ErrorMessage=? WHERE Id=?", endTime.toDate(),
+                + "MinipasImporterStatus SET EndTime=?, Outcome=?, ErrorMessage=? WHERE Id=?", endTime.toDate(),
                 outcome.toString(), errorMessage, newestOpenId);
     }
 
@@ -111,10 +107,10 @@ public class ImportStatusRepositoryJdbcImpl extends CommonDAO implements ImportS
     public ImportStatus getLatestStatus() {
         String sql = null;
         if (MYSQL.equals(getDialect())) {
-            sql = "SELECT * from MedicinImporterStatus ORDER BY StartTime DESC LIMIT 1";
+            sql = "SELECT * from MinipasImporterStatus ORDER BY StartTime DESC LIMIT 1";
         } else {
             // MSSQL
-            sql = "SELECT Top 1 * from " + tableprefix + "MedicinImporterStatus ORDER BY StartTime DESC";
+            sql = "SELECT Top 1 * from " + tableprefix + "MinipasImporterStatus ORDER BY StartTime DESC";
         }
 
         try {
@@ -170,10 +166,10 @@ public class ImportStatusRepositoryJdbcImpl extends CommonDAO implements ImportS
     public boolean isHAIBADBAlive() {
         String sql = null;
         if (MYSQL.equals(getDialect())) {
-            sql = "SELECT insertrow_id from region_medicin LIMIT 1";
+            sql = "SELECT V_SYNC_ID from T_LOG_SYNC LIMIT 1";
         } else {
             // MSSQL
-            sql = "SELECT Top 1 insertrow_id from " + tableprefix + "region_medicin";
+            sql = "SELECT Top 1 V_SYNC_ID from " + tableprefix + "T_LOG_SYNC";
         }
 
         try {
