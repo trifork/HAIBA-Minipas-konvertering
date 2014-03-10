@@ -115,7 +115,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
 
     @Override
     public void importStarted() {
-        jdbc.update("INSERT INTO " + tableprefix + "T_LOG_SYNC (V_SYNC_ID, START_TIME) VALUES (?, ?)", new Date());
+        jdbc.update("INSERT INTO " + tableprefix + "T_LOG_SYNC (START_TIME) VALUES (?)", new Date());
     }
 
     @Override
