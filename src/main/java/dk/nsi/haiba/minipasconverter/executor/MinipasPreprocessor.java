@@ -63,56 +63,58 @@ public class MinipasPreprocessor {
 
     @Scheduled(cron = "${cron.import.job}")
     public void run() {
-        if (running) {
-            if (!isManualOverride()) {
-                aLog.debug("Running Importer: " + new Date().toString());
-                doProcess(false);
-            } else {
-                aLog.debug("Importer must be started manually");
-            }
+        if (!isManualOverride()) {
+            aLog.debug("Running Importer: " + new Date().toString());
+            doProcess(false);
         } else {
-            aLog.debug("already running");
+            aLog.debug("Importer must be started manually");
         }
     }
 
     public void doProcess(boolean manual) {
         aLog.info("Started processing, manual=" + manual);
 
-        int kRecnum = -1;
-        int currentyear = getYear();
-        int yearsback = 5;
-        try {
-            running = true;
-            if (minipasDao.isDatabaseReadyForImport() != 0) {
-                // cleanup - will only cleanup the sync db, not the data already converted and imported
-                minipasSyncDao.cleanupRowsFromTablesOlderThanYear(currentyear - yearsback + 1);
-                haibaDao.importStarted();
-                for (int year = currentyear - yearsback + 1; year <= currentyear; year++) {
-                    String sYear = "" + year;
-                    Collection<MinipasTADM> minipasTADM = null;
-                    while (minipasTADM == null || !minipasTADM.isEmpty()) {
-                        minipasTADM = minipasDao.getMinipasTADM(sYear, kRecnum, batchSize);
-                        MinipasSyncStructure syncStructure = minipasSyncDao.test(year, minipasTADM);
+        if (!running) {
+            int currentyear = getYear();
+            int yearsback = 5;
+            try {
+                running = true;
+                if (minipasDao.isDatabaseReadyForImport() != 0) {
+                    // cleanup - will only cleanup the sync db, not the data already converted and imported
+                    minipasSyncDao.cleanupRowsFromTablesOlderThanYear(currentyear - yearsback + 1);
+                    haibaDao.importStarted();
+                    for (int year = currentyear - yearsback + 1; year <= currentyear; year++) {
+                        int kRecnum = -1;
+                        String sYear = "" + year;
+                        Collection<MinipasTADM> minipasTADM = null;
+                        while (minipasTADM == null || !minipasTADM.isEmpty()) {
+                            minipasTADM = minipasDao.getMinipasTADM(sYear, kRecnum, batchSize);
+                            MinipasSyncStructure syncStructure = minipasSyncDao.test(year, minipasTADM);
 
-                        handleCreated(sYear, syncStructure.getCreated());
-                        handleUpdated(sYear, syncStructure.getUpdated());
+                            handleCreated(sYear, syncStructure.getCreated());
+                            handleUpdated(sYear, syncStructure.getUpdated());
 
-                        // now remember that we have processed the changes
-                        minipasSyncDao.commit(year, syncStructure);
+                            // now remember that we have processed the changes
+                            minipasSyncDao.commit(year, syncStructure);
 
-                        kRecnum = getMaxRecnum(minipasTADM);
+                            kRecnum = getMaxRecnum(minipasTADM);
+                        }
+
+                        // ask sync dao what we haven't mentioned yet - they are deleted
+                        Collection<String> deleted = minipasSyncDao.getDeletedIdnummers(year);
+                        handleDeleted(sYear, deleted);
+                        minipasSyncDao.commitDeleted(year, deleted);
+                        aLog.info("Importer done");
                     }
-
-                    // ask sync dao what we haven't mentioned yet - they are deleted
-                    Collection<String> deleted = minipasSyncDao.getDeletedIdnummers(year);
-                    handleDeleted(sYear, deleted);
+                } else {
+                    String status = "MINIPAS is not ready for import, previous job is not finished yet.";
+                    aLog.warn(status);
                 }
-            } else {
-                String status = "MINIPAS is not ready for import, previous job is not finished yet.";
-                aLog.warn(status);
+            } finally {
+                running = false;
             }
-        } finally {
-            running = false;
+        } else {
+            aLog.warn("Importer already running");
         }
     }
 

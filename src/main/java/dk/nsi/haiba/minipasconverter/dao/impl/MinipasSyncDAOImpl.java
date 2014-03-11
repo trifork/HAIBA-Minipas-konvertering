@@ -52,7 +52,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
     public MinipasSyncDAOImpl(String dialect) {
         super(dialect);
     }
-    
+
     @Autowired
     @Qualifier("minipasSyncJdbcTemplate")
     JdbcTemplate jdbc;
@@ -97,6 +97,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
             }
             returnValue = new HashMap<String, MinipasSyncDAOImpl.SyncStruct>();
             // download the idnummer list, 100 at a time
+            // id is auto incrementing
             int id = -1;
             while (true) {
                 List<SyncStruct> list = jdbc.query(
@@ -133,12 +134,16 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
             jdbc.update("INSERT INTO T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
                     minipasTADM.getIdnummer(), skemaopdat, "T_ADM" + year);
         }
-        for (MinipasTADM minipasTADM : syncStructure.getCreated()) {
+        for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
             jdbc.update("UPDATE T_MINIPAS_SYNC SET SKEMAOPDAT=? WHERE IDNUMMER=?", minipasTADM.getIdnummer(),
                     minipasTADM.getSkemaopdat());
         }
-        for (MinipasTADM minipasTADM : syncStructure.getCreated()) {
-            jdbc.update("DELETE FROM T_MINIPAS_SYNC WHERE IDNUMMER=?", minipasTADM.getIdnummer());
+    }
+
+    @Override
+    public void commitDeleted(int year, Collection<String> deleted) {
+        for (String idnummer : deleted) {
+            jdbc.update("DELETE FROM T_MINIPAS_SYNC WHERE IDNUMMER=?", idnummer);
         }
     }
 
@@ -166,7 +171,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
     @Override
     public Collection<String> getDeletedIdnummers(int year) {
         Collection<String> returnValue = new ArrayList<String>();
-        Map<String, SyncStruct> map = aPendingSyncStructsForYear.get(year);
+        Map<String, SyncStruct> map = aPendingSyncStructsForYear.remove(year);
         if (map != null) {
             returnValue = map.keySet();
         } else {

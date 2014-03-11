@@ -37,6 +37,8 @@ public interface MinipasSyncDAO {
 
     public void commit(int year, MinipasSyncStructure syncStructure);
 
+    public void commitDeleted(int year, Collection<String> deleted);
+
     public interface MinipasSyncStructure {
         public Collection<MinipasTADM> getCreated();
 
