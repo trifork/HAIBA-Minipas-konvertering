@@ -24,26 +24,47 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package dk.nsi.haiba.minipasconverter.dao;
+package dk.nsi.haiba.minipasconverter.status;
 
-import java.util.Collection;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
-import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
-import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
-import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
+public class CurrentImportProgress {
+    private DateFormat dateFormat = new SimpleDateFormat("HH:mm:ss.SSS");
+    private StringBuffer sb;
+    private Object aMutex = new Object();
+    private boolean aProgressDot;
 
-public interface MinipasDAO {
-    /**
-     * @param year full year with century, e.g. 2014
-     * @param fromKRecnum recnum to import from, not inclusive
-     * @param batchSize number of results
-     * @return
-     */
-    public Collection<MinipasTADM> getMinipasTADM(String year, long fromKRecnum, int batchSize);
+    public void reset() {
+        synchronized (aMutex) {
+            sb = new StringBuffer();
+        }
+    }
 
-    public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, String idnummer);
-
-    public Collection<MinipasTDIAG> getMinipasDIAG(String year, String idnummer);
-
-    public long lastReturnCodeElseNegativeOne();
+    public void addStatusLine(String status) {
+        synchronized (aMutex) {
+            if (aProgressDot) {
+                // break line to end progress
+                sb.append("<br/>");
+            }
+            sb.append(dateFormat.format(new Date()) + " " + status + "<br/>");
+            aProgressDot = false;
+        }
+    }
+    
+    public void addProgressDot() {
+        synchronized (aMutex) {
+            aProgressDot = true;
+            sb.append(".");
+        }
+    }
+    
+    public String getStatus() {
+        String returnValue = null;
+        synchronized (aMutex) {
+            returnValue = sb != null ? sb.toString() : "(no current import status)";
+        }
+        return returnValue;
+    }
 }

@@ -45,6 +45,7 @@ import dk.nsi.haiba.minipasconverter.dao.impl.MinipasDAOImpl;
 import dk.nsi.haiba.minipasconverter.dao.impl.MinipasHAIBADAOImpl;
 import dk.nsi.haiba.minipasconverter.dao.impl.MinipasSyncDAOImpl;
 import dk.nsi.haiba.minipasconverter.executor.MinipasPreprocessor;
+import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 import dk.nsi.haiba.minipasconverter.status.ImportStatusRepository;
 import dk.nsi.haiba.minipasconverter.status.ImportStatusRepositoryJdbcImpl;
 import dk.nsi.haiba.minipasconverter.status.TimeSource;
@@ -54,10 +55,10 @@ import dk.nsi.haiba.minipasconverter.status.TimeSourceRealTimeImpl;
 public class MinipasConverterConfiguration {
     @Value("${jdbc.haibaJNDIName}")
     private String haibaJNDIName;
-    
+
     @Value("${jdbc.haibaSyncJNDIName}")
     private String haibaSyncJNDIName;
-    
+
     @Value("${jdbc.minipasJNDIName}")
     private String minipasJNDIName;
 
@@ -151,5 +152,10 @@ public class MinipasConverterConfiguration {
     @Bean
     public MinipasSyncDAO minipasSyncDAO() {
         return new MinipasSyncDAOImpl(haibasyncdialect);
+    }
+
+    @Bean
+    public CurrentImportProgress currentImportProgress() {
+        return new CurrentImportProgress();
     }
 }

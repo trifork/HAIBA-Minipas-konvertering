@@ -60,6 +60,9 @@ public class StatusReporter {
 
 	@Autowired 
 	private HttpServletRequest request;
+
+    @Autowired
+    CurrentImportProgress currentImportProgress;
 	
 	@RequestMapping(value = "/status")
 	public ResponseEntity<String> reportStatus() {
@@ -105,6 +108,11 @@ public class StatusReporter {
 		body += "</br>";
 		body = addLastRunInformation(body);
 		
+        body += "</br>------------------</br>";
+
+        String importProgress = currentImportProgress.getStatus();
+        body += importProgress;
+
 		body += "</br>------------------</br>";
 		
 		String url = request.getRequestURL().toString();

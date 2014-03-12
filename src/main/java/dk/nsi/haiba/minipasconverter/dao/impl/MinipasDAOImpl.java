@@ -93,15 +93,15 @@ public class MinipasDAOImpl implements MinipasDAO {
         }, fromKRecnum, batchSize);
         return query;
     }
-
+    
     @Override
-    public long isDatabaseReadyForImport() {
+    public long lastReturnCodeElseNegativeOne() {
         try {
             String sql1 = "SELECT max(K_ID) FROM " + minipasStatusTableName;
             ;
-            String sql2 = "SELECT K_ID FROM " + minipasStatusTableName
+            String sql2 = "SELECT V_RETURNCODE FROM " + minipasStatusTableName
                     + " WHERE K_ID = ? AND D_ENDDATETIME IS NOT NULL";
-
+            
             long maxSyncId = jdbc.queryForLong(sql1);
             jdbc.queryForLong(sql2, maxSyncId);
             return maxSyncId;
@@ -110,7 +110,7 @@ public class MinipasDAOImpl implements MinipasDAO {
         } catch (RuntimeException e) {
             throw new DAOException("Error fetching database status from " + minipasStatusTableName, e);
         }
-        return 0;
+        return -1;
     }
 
     @Override
