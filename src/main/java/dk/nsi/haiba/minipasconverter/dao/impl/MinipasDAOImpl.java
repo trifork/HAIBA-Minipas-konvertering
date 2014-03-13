@@ -93,20 +93,22 @@ public class MinipasDAOImpl implements MinipasDAO {
         }, fromKRecnum, batchSize);
         return query;
     }
-    
+
     @Override
     public long lastReturnCodeElseNegativeOne() {
         try {
             String sql1 = "SELECT max(K_ID) FROM " + minipasStatusTableName;
-            ;
             String sql2 = "SELECT V_RETURNCODE FROM " + minipasStatusTableName
                     + " WHERE K_ID = ? AND D_ENDDATETIME IS NOT NULL";
-            
+
             long maxSyncId = jdbc.queryForLong(sql1);
-            jdbc.queryForLong(sql2, maxSyncId);
-            return maxSyncId;
+            System.out.println("maxSyncId=" + maxSyncId);
+            long returnCode = jdbc.queryForLong(sql2, maxSyncId);
+            System.out.println("returnCode=" + returnCode);
+            return returnCode;
         } catch (EmptyResultDataAccessException e) {
             // LPR is not ready for Import
+            System.out.println("empty");
         } catch (RuntimeException e) {
             throw new DAOException("Error fetching database status from " + minipasStatusTableName, e);
         }

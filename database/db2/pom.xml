@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0  
+http://maven.apache.org/maven-v4_0_0.xsd"> 
+    <modelVersion>4.0.0</modelVersion> 
+    <groupId>com.ibm.db2.jcc</groupId> 
+    <artifactId>runtime</artifactId> 
+    <version>V9.7-FP9</version> 
+    <packaging>pom</packaging> 
+    <description>Library POM for the DB2 Universal Driver runtime jars 
+from DB2 V9.7 FP9.</description> 
+    <dependencies> 
+        <dependency> 
+            <groupId>com.ibm.db2.jcc</groupId> 
+            <artifactId>db2jcc</artifactId> 
+            <version>V9.7-FP9</version> 
+        </dependency>
+        <dependency> 
+            <groupId>com.ibm.db2.jcc</groupId> 
+            <artifactId>jdbc_LI_en</artifactId> 
+            <version>V9.7-FP9</version> 
+        </dependency> 
+    </dependencies> 
+</project> 

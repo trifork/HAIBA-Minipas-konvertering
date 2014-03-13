@@ -47,7 +47,7 @@ import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 public class MinipasPreprocessor {
     private static Logger aLog = Logger.getLogger(MinipasPreprocessor.class);
 
-    @Value("${minipas.batchsize:!00}")
+    @Value("${minipas.batchsize:100}")
     int batchSize;
 
     @Value("${minipas.noofretries:2}")
@@ -100,35 +100,7 @@ public class MinipasPreprocessor {
                         aLog.warn(status);
                         doRetry = false;
                     } else if (minipasOk(lastReturnCodeElseNegativeOne)) {
-                        // cleanup - will only cleanup the sync db, not the data already converted and imported
-                        int cleanupYear = currentyear - yearsback + 1;
-                        currentImportProgress.addStatusLine("cleaning up data older than " + cleanupYear);
-                        minipasSyncDao.cleanupRowsFromTablesOlderThanYear(cleanupYear);
-                        haibaDao.importStarted();
-                        for (int year = cleanupYear; year <= currentyear; year++) {
-                            int kRecnum = -1;
-                            String sYear = "" + year;
-                            currentImportProgress.addStatusLine("processing year " + sYear);
-                            Collection<MinipasTADM> minipasTADM = null;
-                            while (minipasTADM == null || !minipasTADM.isEmpty()) {
-                                currentImportProgress.addProgressDot();
-                                minipasTADM = minipasDao.getMinipasTADM(sYear, kRecnum, batchSize);
-                                MinipasSyncStructure syncStructure = minipasSyncDao.test(year, minipasTADM);
-
-                                handleCreated(sYear, syncStructure.getCreated());
-                                handleUpdated(sYear, syncStructure.getUpdated());
-
-                                // now remember that we have processed the changes
-                                minipasSyncDao.commit(year, syncStructure);
-
-                                kRecnum = getMaxRecnum(minipasTADM);
-                            }
-
-                            // ask sync dao what we haven't mentioned yet - they are deleted
-                            Collection<String> deleted = minipasSyncDao.getDeletedIdnummers(year);
-                            handleDeleted(sYear, deleted);
-                            minipasSyncDao.commitDeleted(year, deleted);
-                        }
+                        doImport(currentyear, yearsback);
                         doRetry = false;
                     } else {
                         retries--;
@@ -138,8 +110,9 @@ public class MinipasPreprocessor {
                                     + " minutes";
                             currentImportProgress.addStatusLine(status);
                             aLog.warn(status);
+                            System.out.println(status);
                             try {
-                                Thread.currentThread().wait(waitPeriodMinutes * 60 * 1000);
+                                Thread.currentThread().sleep(waitPeriodMinutes * 60 * 1000);
                             } catch (InterruptedException e) {
                                 aLog.error("", e);
                             }
@@ -158,6 +131,38 @@ public class MinipasPreprocessor {
             }
         } else {
             aLog.warn("Importer already running");
+        }
+    }
+
+    public void doImport(int currentyear, int yearsback) {
+        // cleanup - will only cleanup the sync db, not the data already converted and imported
+        int cleanupYear = currentyear - yearsback + 1;
+        currentImportProgress.addStatusLine("cleaning up data older than " + cleanupYear);
+        minipasSyncDao.cleanupRowsFromTablesOlderThanYear(cleanupYear);
+        haibaDao.importStarted();
+        for (int year = cleanupYear; year <= currentyear; year++) {
+            int kRecnum = -1;
+            String sYear = "" + year;
+            currentImportProgress.addStatusLine("processing year " + sYear);
+            Collection<MinipasTADM> minipasTADM = null;
+            while (minipasTADM == null || !minipasTADM.isEmpty()) {
+                currentImportProgress.addProgressDot();
+                minipasTADM = minipasDao.getMinipasTADM(sYear, kRecnum, batchSize);
+                MinipasSyncStructure syncStructure = minipasSyncDao.test(year, minipasTADM);
+
+                handleCreated(sYear, syncStructure.getCreated());
+                handleUpdated(sYear, syncStructure.getUpdated());
+
+                // now remember that we have processed the changes
+                minipasSyncDao.commit(year, syncStructure);
+
+                kRecnum = getMaxRecnum(minipasTADM);
+            }
+
+            // ask sync dao what we haven't mentioned yet - they are deleted
+            Collection<String> deleted = minipasSyncDao.getDeletedIdnummers(year);
+            handleDeleted(sYear, deleted);
+            minipasSyncDao.commitDeleted(year, deleted);
         }
     }
 
