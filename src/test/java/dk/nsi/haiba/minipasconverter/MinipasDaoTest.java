@@ -48,7 +48,7 @@ import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
-//@Ignore // not able to run from maven without db2 driver
+@Ignore // not able to run from maven without db2 driver
 public class MinipasDaoTest {
     @Configuration
     @Import({ TestConfiguration.class })
