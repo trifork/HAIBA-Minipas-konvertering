@@ -44,7 +44,7 @@ import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     private static final Logger aLog = Logger.getLogger(MinipasHAIBADAOImpl.class);
     @Autowired
-    @Qualifier("minipasHaibaJdbcTemplate")
+    @Qualifier("haibaJdbcTemplate")
     JdbcTemplate jdbc;
 
     @Value("${jdbc.minipashaibatableprefix:}")

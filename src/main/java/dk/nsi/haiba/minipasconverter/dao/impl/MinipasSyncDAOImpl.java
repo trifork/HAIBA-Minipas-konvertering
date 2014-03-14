@@ -54,7 +54,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
     }
 
     @Autowired
-    @Qualifier("minipasSyncJdbcTemplate")
+    @Qualifier("haibaSyncJdbcTemplate")
     JdbcTemplate jdbc;
 
     @Value("${minipas.syncidnummerfecthbatchsize:100}")
