@@ -112,7 +112,7 @@ public class MinipasPreprocessor {
                             aLog.warn(status);
                             System.out.println(status);
                             try {
-                                Thread.currentThread().sleep(waitPeriodMinutes * 60 * 1000);
+                                Thread.sleep(waitPeriodMinutes * 60 * 1000);
                             } catch (InterruptedException e) {
                                 aLog.error("", e);
                             }

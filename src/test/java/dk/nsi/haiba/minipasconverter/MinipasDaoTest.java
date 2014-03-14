@@ -28,6 +28,7 @@ package dk.nsi.haiba.minipasconverter;
 
 import static org.junit.Assert.assertTrue;
 
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mockito;
@@ -47,6 +48,7 @@ import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
+//@Ignore // not able to run from maven without db2 driver
 public class MinipasDaoTest {
     @Configuration
     @Import({ TestConfiguration.class })

@@ -26,8 +26,11 @@
  */
 package dk.nsi.haiba.minipasconverter;
 
+import java.sql.Driver;
+
 import javax.sql.DataSource;
 
+import org.junit.Ignore;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -36,8 +39,6 @@ import org.springframework.context.annotation.PropertySource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
-
-import com.ibm.db2.jcc.DB2Driver;
 
 import dk.nsi.haiba.minipasconverter.config.MinipasConverterConfiguration;
 
@@ -49,7 +50,9 @@ public class TestConfiguration extends MinipasConverterConfiguration {
     public DataSource minipasDataSource() throws Exception {
         String jdbcUrlPrefix = "jdbc:db2://127.0.0.1:50000/HAIBA";
 
-        return new SimpleDriverDataSource(new DB2Driver(), jdbcUrlPrefix, "db2inst1", "db2inst1");
+        // not in maven, only works in eclipse
+        Driver d = (Driver) Class.forName("com.ibm.db2.jcc.DB2Driver").newInstance();
+        return new SimpleDriverDataSource(d, jdbcUrlPrefix, "db2inst1", "db2inst1");
     }
 
     @Bean
