@@ -140,7 +140,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
         }
         for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
             jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT=? WHERE IDNUMMER=?",
-                    minipasTADM.getIdnummer(), minipasTADM.getSkemaopdat());
+                    minipasTADM.getSkemaopdat(), minipasTADM.getIdnummer());
         }
     }
 

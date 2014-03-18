@@ -109,7 +109,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     @Override
     public void resetAdmD_IMPORTDTO(Collection<MinipasTADM> minipasTADMs) {
         for (MinipasTADM m : minipasTADMs) {
-            jdbc.update("UPDATE " + tableprefix + "T_ADM SET D_IMPORTDTO=NULL WHERE IDNUMMER=?", m.getIdnummer());
+            jdbc.update("UPDATE " + tableprefix + "T_ADM SET D_IMPORTDTO=NULL WHERE V_RECNUM=?", m.getIdnummer());
         }
     }
 
