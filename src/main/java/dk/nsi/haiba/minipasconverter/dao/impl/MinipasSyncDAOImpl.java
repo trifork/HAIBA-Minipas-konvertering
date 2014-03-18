@@ -60,10 +60,14 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
     @Value("${minipas.syncidnummerfecthbatchsize:100}")
     int batchSize;
 
+    @Value("${jdbc.minipashaibasynctableprefix:}")
+    String tableprefix;
+
     @Override
     public void cleanupRowsFromTablesOlderThanYear(int year) {
         // SOURCE_TABLE_NAME has values like T_ADM2010. the year part starts at the 6th position (1 based index)
-        int update = jdbc.update("DELETE FROM T_MINIPAS_SYNC WHERE int(subtring(SOURCE_TABLE_NAME, 6)) < ?", year);
+        int update = jdbc.update("DELETE FROM " + tableprefix
+                + "T_MINIPAS_SYNC WHERE convert(int, substring(SOURCE_TABLE_NAME, 6, 4)) < ?", year);
         if (aLog.isDebugEnabled()) {
             aLog.debug("cleanupRowsFromTablesOlderThanYear: number of rows affected " + update + " for year=" + year);
         }
@@ -100,18 +104,17 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
             // id is auto incrementing
             int id = -1;
             while (true) {
-                List<SyncStruct> list = jdbc.query(
-                        "SELECT * FROM T_MINIPAS_SYNC WHERE SOURCE_TABLE_NAME=? AND ID>? FETCH FIRST ? ROWS ONLY",
-                        new RowMapper<SyncStruct>() {
-                            @Override
-                            public SyncStruct mapRow(ResultSet rs, int rowNum) throws SQLException {
-                                SyncStruct returnValue = new SyncStruct();
-                                returnValue.aId = rs.getInt("ID");
-                                returnValue.aIdNummer = rs.getString("IDNUMMER");
-                                returnValue.aSkemaOpdat = rs.getDate("SKEMAOPDAT");
-                                return returnValue;
-                            }
-                        }, "T_ADM" + year, id, batchSize);
+                List<SyncStruct> list = jdbc.query("SELECT TOP " + batchSize + " * FROM " + tableprefix
+                        + "T_MINIPAS_SYNC WHERE SOURCE_TABLE_NAME=? AND ID>? ORDER BY ID", new RowMapper<SyncStruct>() {
+                    @Override
+                    public SyncStruct mapRow(ResultSet rs, int rowNum) throws SQLException {
+                        SyncStruct returnValue = new SyncStruct();
+                        returnValue.aId = rs.getInt("ID");
+                        returnValue.aIdNummer = rs.getString("IDNUMMER");
+                        returnValue.aSkemaOpdat = rs.getDate("SKEMAOPDAT");
+                        return returnValue;
+                    }
+                }, "T_ADM" + year, id);
                 if (list == null || list.isEmpty()) {
                     break;
                 }
@@ -131,19 +134,20 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
         for (MinipasTADM minipasTADM : syncStructure.getCreated()) {
             Date skemaopdat = minipasTADM.getSkemaopdat() == null ? minipasTADM.getSkemaopret() : minipasTADM
                     .getSkemaopdat();
-            jdbc.update("INSERT INTO T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
+            jdbc.update("INSERT INTO " + tableprefix
+                    + "T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
                     minipasTADM.getIdnummer(), skemaopdat, "T_ADM" + year);
         }
         for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
-            jdbc.update("UPDATE T_MINIPAS_SYNC SET SKEMAOPDAT=? WHERE IDNUMMER=?", minipasTADM.getIdnummer(),
-                    minipasTADM.getSkemaopdat());
+            jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT=? WHERE IDNUMMER=?",
+                    minipasTADM.getIdnummer(), minipasTADM.getSkemaopdat());
         }
     }
 
     @Override
     public void commitDeleted(int year, Collection<String> deleted) {
         for (String idnummer : deleted) {
-            jdbc.update("DELETE FROM T_MINIPAS_SYNC WHERE IDNUMMER=?", idnummer);
+            jdbc.update("DELETE FROM " + tableprefix + "T_MINIPAS_SYNC WHERE IDNUMMER=?", idnummer);
         }
     }
 

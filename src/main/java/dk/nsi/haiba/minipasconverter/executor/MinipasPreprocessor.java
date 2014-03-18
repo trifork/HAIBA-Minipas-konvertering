@@ -127,6 +127,7 @@ public class MinipasPreprocessor {
                 aLog.info("Importer done");
                 currentImportProgress.addStatusLine("done");
             } finally {
+                aLog.info("Stopped processing, manual=" + manual);
                 running = false;
             }
         } else {
@@ -140,21 +141,43 @@ public class MinipasPreprocessor {
         currentImportProgress.addStatusLine("cleaning up data older than " + cleanupYear);
         minipasSyncDao.cleanupRowsFromTablesOlderThanYear(cleanupYear);
         haibaDao.importStarted();
+        currentImportProgress.addStatusLine("dots are batches of size " + batchSize);
         for (int year = cleanupYear; year <= currentyear; year++) {
             int kRecnum = -1;
             String sYear = "" + year;
             currentImportProgress.addStatusLine("processing year " + sYear);
+            if (aLog.isDebugEnabled()) {
+                aLog.debug("doImport: processing year " + sYear);
+            }
             Collection<MinipasTADM> minipasTADM = null;
             while (minipasTADM == null || !minipasTADM.isEmpty()) {
                 currentImportProgress.addProgressDot();
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: kRecnum=" + kRecnum + ", batchSize=" + batchSize);
+                }
                 minipasTADM = minipasDao.getMinipasTADM(sYear, kRecnum, batchSize);
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: minipas returned " + minipasTADM.size());
+                }
                 MinipasSyncStructure syncStructure = minipasSyncDao.test(year, minipasTADM);
-
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: tested, got " + syncStructure.getCreated().size() + " created and "
+                            + syncStructure.getUpdated().size() + " updated");
+                }
                 handleCreated(sYear, syncStructure.getCreated());
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: handled created");
+                }
                 handleUpdated(sYear, syncStructure.getUpdated());
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: handled updated");
+                }
 
                 // now remember that we have processed the changes
                 minipasSyncDao.commit(year, syncStructure);
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: committed");
+                }
 
                 kRecnum = getMaxRecnum(minipasTADM);
             }
