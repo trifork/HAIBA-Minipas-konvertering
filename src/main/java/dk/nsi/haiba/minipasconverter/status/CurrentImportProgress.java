@@ -35,6 +35,7 @@ public class CurrentImportProgress {
     private StringBuffer sb;
     private Object aMutex = new Object();
     private boolean aProgressDot;
+    private int aLineDotCount;
 
     public void reset() {
         synchronized (aMutex) {
@@ -52,14 +53,19 @@ public class CurrentImportProgress {
             aProgressDot = false;
         }
     }
-    
+
     public void addProgressDot() {
         synchronized (aMutex) {
             aProgressDot = true;
             sb.append(".");
+            aLineDotCount++;
+            if (aLineDotCount == 100) {
+                aLineDotCount = 0;
+                sb.append("<br>");
+            }
         }
     }
-    
+
     public String getStatus() {
         String returnValue = null;
         synchronized (aMutex) {

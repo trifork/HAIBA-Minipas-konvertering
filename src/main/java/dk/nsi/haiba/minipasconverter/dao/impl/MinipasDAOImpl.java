@@ -30,7 +30,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +41,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+
+import com.jamonapi.Monitor;
+import com.jamonapi.MonitorFactory;
 
 import dk.nsi.haiba.minipasconverter.dao.DAOException;
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
@@ -58,8 +63,16 @@ public class MinipasDAOImpl implements MinipasDAO {
     @Value("${minipas.minipasprefix:MINIPAS_UGL.}")
     String minipasPrefix;
 
+    Map<Integer, Collection<MinipasTSKSUBE_OPR>> aRecnumToSKSUBECollectionMap;
+    String aCurrentSKSUBETable;
+    Map<Integer, Collection<MinipasTSKSUBE_OPR>> aRecnumToSKSOPRCollectionMap;
+    String aCurrentSKSOPRTable;
+    Map<Integer, Collection<MinipasTDIAG>> aRecnumToDIAGCollectionMap;
+    String aCurrentDIAGTable;
+
     @Override
     public Collection<MinipasTADM> getMinipasTADM(String year, long fromKRecnum, int batchSize) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasTADM");
         String tableName = "T_ADM" + year;
         // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
         List<MinipasTADM> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
@@ -83,13 +96,13 @@ public class MinipasDAOImpl implements MinipasDAO {
                         returnValue.setC_sghamt(rs.getString("C_SGHAMT"));
                         returnValue.setC_spec(rs.getString("C_SPEC"));
                         returnValue.setC_udm(rs.getString("C_UDM"));
-                        returnValue.setD_hendto(rs.getDate("D_HENDTO"));
-                        returnValue.setD_inddto(rs.getDate("D_INDDTO"));
-                        returnValue.setD_uddto(rs.getDate("D_UDDTO"));
+                        returnValue.setD_hendto(rs.getTimestamp("D_HENDTO"));
+                        returnValue.setD_inddto(rs.getTimestamp("D_INDDTO"));
+                        returnValue.setD_uddto(rs.getTimestamp("D_UDDTO"));
                         returnValue.setIdnummer(rs.getString("IDNUMMER"));
                         returnValue.setK_recnum(rs.getInt("K_RECNUM"));
-                        returnValue.setSkemaopdat(rs.getDate("SKEMAOPDAT"));
-                        returnValue.setSkemaopret(rs.getDate("SKEMAOPRET"));
+                        returnValue.setSkemaopdat(rs.getTimestamp("SKEMAOPDAT"));
+                        returnValue.setSkemaopret(rs.getTimestamp("SKEMAOPRET"));
                         returnValue.setV_alder(rs.getInt("V_ALDER"));
                         returnValue.setV_behdage(rs.getInt("V_BEHDAGE"));
                         returnValue.setV_cpr(rs.getString("V_CPR"));
@@ -97,6 +110,7 @@ public class MinipasDAOImpl implements MinipasDAO {
                         return returnValue;
                     }
                 }, fromKRecnum);
+        mon.stop();
         return query;
     }
 
@@ -126,20 +140,23 @@ public class MinipasDAOImpl implements MinipasDAO {
     }
 
     @Override
-    public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, String idnummer) {
+    public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, int recnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSUBE_OPR");
         List<MinipasTSKSUBE_OPR> returnValue = new ArrayList<MinipasTSKSUBE_OPR>();
-        returnValue.addAll(getMinipasSKSUBE_OPRFromTable("T_SKSUBE" + year, idnummer));
-        returnValue.addAll(getMinipasSKSUBE_OPRFromTable("T_SKSOPR" + year, idnummer));
+        returnValue.addAll(getMinipasSKSUBE_OPRFromTable("T_SKSUBE" + year, recnum));
+        returnValue.addAll(getMinipasSKSUBE_OPRFromTable("T_SKSOPR" + year, recnum));
+        mon.stop();
         return returnValue;
     }
 
-    private Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPRFromTable(String tableName, String idnummer) {
+    private Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPRFromTable(String tableName, int recnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSUBE_OPRFromTable");
         // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
         // check if these are correct v_types to put into T_KODER XXX
         // 'ube'->'und' for now, possibly also 'til'?
         final String type = tableName.toLowerCase().contains("ube") ? "und" : "opr";
         List<MinipasTSKSUBE_OPR> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
-                + " WHERE IDNUMMER = ?", new RowMapper<MinipasTSKSUBE_OPR>() {
+                + " WHERE V_RECNUM = ?", new RowMapper<MinipasTSKSUBE_OPR>() {
             @Override
             public MinipasTSKSUBE_OPR mapRow(ResultSet rs, int rowNum) throws SQLException {
                 MinipasTSKSUBE_OPR returnValue = new MinipasTSKSUBE_OPR();
@@ -148,34 +165,85 @@ public class MinipasDAOImpl implements MinipasDAO {
                 returnValue.setC_oprart(rs.getString("C_OPRART"));
                 returnValue.setC_osgh(rs.getString("C_OSGH"));
                 returnValue.setC_tilopr(rs.getString("C_TILOPR"));
-                returnValue.setD_odto(rs.getDate("D_ODTO"));
+                returnValue.setD_odto(rs.getTimestamp("D_ODTO"));
                 returnValue.setIdnummer(rs.getString("IDNUMMER"));
-                returnValue.setIndberetningsdato(rs.getDate("INDBERETNINGSDATO"));
+                returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
                 returnValue.setV_recnum(rs.getInt("V_RECNUM"));
                 returnValue.setType(type);
                 return returnValue;
             }
-        }, idnummer);
+        }, recnum);
+        mon.stop();
         return query;
     }
 
     @Override
-    public Collection<MinipasTDIAG> getMinipasDIAG(String year, String idnummer) {
-        // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
-        List<MinipasTDIAG> query = jdbc.query("SELECT * FROM " + minipasPrefix + "T_DIAG" + year
-                + " WHERE IDNUMMER = ?", new RowMapper<MinipasTDIAG>() {
-            @Override
-            public MinipasTDIAG mapRow(ResultSet rs, int rowNum) throws SQLException {
-                MinipasTDIAG returnValue = new MinipasTDIAG();
-                returnValue.setC_diag(rs.getString("C_DIAG"));
-                returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
-                returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
-                returnValue.setIdnummer(rs.getString("IDNUMMER"));
-                returnValue.setIndberetningsdato(rs.getDate("INDBERETNINGSDATO"));
-                returnValue.setV_recnum(rs.getInt("V_RECNUM"));
-                return returnValue;
+    public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasDIAG");
+        if (!year.equals(aCurrentDIAGTable)) {
+            // new cache
+            aCurrentDIAGTable = year;
+            aRecnumToDIAGCollectionMap = new HashMap<Integer, Collection<MinipasTDIAG>>();
+            RowMapper<MinipasTDIAG> rowMapper = new RowMapper<MinipasTDIAG>() {
+                @Override
+                public MinipasTDIAG mapRow(ResultSet rs, int rowNum) throws SQLException {
+                    MinipasTDIAG returnValue = new MinipasTDIAG();
+                    returnValue.setC_diag(rs.getString("C_DIAG"));
+                    returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
+                    returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
+                    returnValue.setIdnummer(rs.getString("IDNUMMER"));
+                    returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
+                    returnValue.setV_recnum(rs.getInt("V_RECNUM"));
+                    return returnValue;
+                }
+            };
+            
+            int queryRecnum = -1;
+            Collection<MinipasTDIAG> query = null;
+            int batchSize = 1000;
+            while (query == null || !query.isEmpty()) {
+                query = jdbc.query("SELECT * FROM " + minipasPrefix + "T_DIAG" + year
+                        + " WHERE V_RECNUM > ? ORDER BY V_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY", rowMapper,
+                        queryRecnum);
+
+                for (MinipasTDIAG minipasTDIAG : query) {
+                    // store in cache
+                    Collection<MinipasTDIAG> collection = aRecnumToDIAGCollectionMap.get(minipasTDIAG.getV_recnum());
+                    if (collection == null) {
+                        collection = new ArrayList<MinipasTDIAG>();
+                        aRecnumToDIAGCollectionMap.put(minipasTDIAG.getV_recnum(), collection);
+                    }
+                    collection.add(minipasTDIAG);
+
+                    // prepare next query
+                    queryRecnum = Math.max(queryRecnum, minipasTDIAG.getV_recnum());
+                }
             }
-        }, idnummer);
-        return query;
+        }
+        // 99.9% just goes here
+        Collection<MinipasTDIAG> collection = aRecnumToDIAGCollectionMap.get(recnum);
+        mon.stop();
+        return collection;
     }
+    // @Override
+    // public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum) {
+    // Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasDIAG");
+    // // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
+    // Collection<MinipasTDIAG> query = jdbc.query("SELECT * FROM " + minipasPrefix + "T_DIAG" + year
+    // + " WHERE V_RECNUM = ?", new RowMapper<MinipasTDIAG>() {
+    // @Override
+    // public MinipasTDIAG mapRow(ResultSet rs, int rowNum) throws SQLException {
+    // MinipasTDIAG returnValue = new MinipasTDIAG();
+    // returnValue.setC_diag(rs.getString("C_DIAG"));
+    // returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
+    // returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
+    // returnValue.setIdnummer(rs.getString("IDNUMMER"));
+    // returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
+    // returnValue.setV_recnum(rs.getInt("V_RECNUM"));
+    // return returnValue;
+    // }
+    // }, recnum);
+    // mon.stop();
+    // return query;
+    // }
 }

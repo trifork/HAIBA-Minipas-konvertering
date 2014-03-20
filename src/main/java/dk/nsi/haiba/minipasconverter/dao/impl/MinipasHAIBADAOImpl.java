@@ -36,6 +36,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import com.jamonapi.Monitor;
+import com.jamonapi.MonitorFactory;
+
 import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
@@ -56,6 +59,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
 
     @Override
     public void createKoderFromSksUbeOpr(MinipasTADM minipasTADM, Collection<MinipasTSKSUBE_OPR> ubeoprs) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createKoderFromSksUbeOpr");
         for (MinipasTSKSUBE_OPR m : ubeoprs) {
             jdbc.update(
                     "INSERT INTO "
@@ -64,18 +68,22 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                     m.getIdnummer(), m.getC_opr(), m.getC_tilopr(), m.getC_oprart(), m.getIndberetningsdato(),
                     minipasTADM.getC_sgh(), minipasTADM.getC_afd(), m.getType());
         }
+        mon.stop();
     }
 
     @Override
     public void clearKoder(String idnummer) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.clearKoder");
         int update = jdbc.update("DELETE FROM " + tableprefix + "T_KODER WHERE V_RECNUM=?", idnummer);
-        if (aLog.isDebugEnabled()) {
-            aLog.debug("clearKoder: number of rows affected " + update + " for idnummer=" + idnummer);
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("clearKoder: number of rows affected " + update + " for idnummer=" + idnummer);
         }
+        mon.stop();
     }
 
     @Override
     public void createKoderFromDiag(MinipasTADM minipasTADM, Collection<MinipasTDIAG> diags) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createKoderFromDiag");
         for (MinipasTDIAG m : diags) {
             jdbc.update(
                     "INSERT INTO "
@@ -84,10 +92,12 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                     m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), m.getC_diagtype(), m.getIndberetningsdato(),
                     minipasTADM.getC_sgh(), minipasTADM.getC_afd(), "dia");
         }
+        mon.stop();
     }
 
     @Override
     public void createAdm(Collection<MinipasTADM> minipasTADMs) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createAdm");
         for (MinipasTADM m : minipasTADMs) {
             jdbc.update(
                     "INSERT INTO "
@@ -96,21 +106,24 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                     m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
                     m.getD_uddto());
         }
+        mon.stop();
     }
 
     @Override
     public void clearAdm(String idnummer) {
         int update = jdbc.update("DELETE FROM " + tableprefix + "T_ADM WHERE V_RECNUM=?", idnummer);
-        if (aLog.isDebugEnabled()) {
-            aLog.debug("clearAdm: number of rows affected " + update + " for idnummer=" + idnummer);
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("clearAdm: number of rows affected " + update + " for idnummer=" + idnummer);
         }
     }
 
     @Override
     public void resetAdmD_IMPORTDTO(Collection<MinipasTADM> minipasTADMs) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.resetAdmD_IMPORTDTO");
         for (MinipasTADM m : minipasTADMs) {
             jdbc.update("UPDATE " + tableprefix + "T_ADM SET D_IMPORTDTO=NULL WHERE V_RECNUM=?", m.getIdnummer());
         }
+        mon.stop();
     }
 
     @Override
@@ -118,8 +131,8 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
         jdbc.update("INSERT INTO " + tableprefix + "T_LOG_SYNC (START_TIME) VALUES (?)", new Date());
     }
 
-    @Override
-    public void importEnded() {
+    private long getNewestSyncId() throws EmptyResultDataAccessException {
+        long returnValue = -1;
         String sql = null;
         if (MYSQL.equals(getDialect())) {
             sql = "SELECT V_SYNC_ID FROM T_LOG_SYNC ORDER BY START_TIME DESC LIMIT 1";
@@ -127,21 +140,30 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
             // MSSQL
             sql = "SELECT TOP 1 V_SYNC_ID FROM " + tableprefix + "T_LOG_SYNC ORDER BY START_TIME DESC";
         }
+        returnValue = jdbc.queryForLong(sql);
+        return returnValue;
+    }
 
-        Long newestOpenId;
+    @Override
+    public void importEnded() {
         try {
-            newestOpenId = jdbc.queryForLong(sql);
+            Long newestOpenId = getNewestSyncId();
+            jdbc.update("UPDATE " + tableprefix + "T_LOG_SYNC SET END_TIME=?, WHERE V_SYNC_ID=?", new Date(),
+                    newestOpenId);
         } catch (EmptyResultDataAccessException e) {
-            aLog.debug("it seems we do not have any open statuses, let's not update");
-            return;
+            aLog.debug("importEnded: it seems we do not have any open statuses, let's not update");
         }
-
-        jdbc.update("UPDATE " + tableprefix + "T_LOG_SYNC SET END_TIME=?, WHERE V_SYNC_ID=?", new Date(), newestOpenId);
     }
 
     @Override
     public void setDeleted(String idnummer) {
-        // XXX
-        jdbc.update("INSERT INTO T_LOG_SYNC_HISTORY (C_ACTION_TYPE) VALUES ('DELETE')");
+        try {
+            Long newestOpenId = getNewestSyncId();
+            jdbc.update(
+                    "INSERT INTO T_LOG_SYNC_HISTORY (V_SYNC_ID, V_RECNUM, C_ACTION_TYPE) VALUES (?, ?, 'DELETE') WHERE V_RECNUM=?",
+                    newestOpenId, idnummer);
+        } catch (EmptyResultDataAccessException e) {
+            aLog.debug("setDeleted: it seems we do not have any open statuses, let's not update");
+        }
     }
 }

@@ -41,9 +41,9 @@ public interface MinipasDAO {
      */
     public Collection<MinipasTADM> getMinipasTADM(String year, long fromKRecnum, int batchSize);
 
-    public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, String idnummer);
+    public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, int recnum);
 
-    public Collection<MinipasTDIAG> getMinipasDIAG(String year, String idnummer);
+    public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum);
 
     public long lastReturnCodeElseNegativeOne();
 }

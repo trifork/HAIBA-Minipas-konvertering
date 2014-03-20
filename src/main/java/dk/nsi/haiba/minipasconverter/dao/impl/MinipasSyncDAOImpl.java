@@ -42,6 +42,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
+import com.jamonapi.Monitor;
+import com.jamonapi.MonitorFactory;
+
 import dk.nsi.haiba.minipasconverter.dao.MinipasSyncDAO;
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 
@@ -75,6 +78,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
 
     @Override
     public MinipasSyncStructure test(int year, Collection<MinipasTADM> minipasRows) {
+        Monitor mon = MonitorFactory.start("MinipasSyncDAOImpl.test");
         MinipasSyncStructureImpl returnValue = new MinipasSyncStructureImpl();
         Map<String, SyncStruct> pendingIdnummersForYear = getPendingIdNummersForYear(year);
         for (MinipasTADM minipasTADM : minipasRows) {
@@ -90,10 +94,12 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
                 returnValue.aUpdated.add(minipasTADM);
             }
         }
+        mon.stop();
         return returnValue;
     }
 
     private Map<String, SyncStruct> getPendingIdNummersForYear(int year) {
+        Monitor mon = MonitorFactory.start("MinipasSyncDAOImpl.getPendingIdNummersForYear");
         Map<String, SyncStruct> returnValue = aPendingSyncStructsForYear.get(year);
         if (returnValue == null) {
             if (aLog.isDebugEnabled()) {
@@ -111,7 +117,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
                         SyncStruct returnValue = new SyncStruct();
                         returnValue.aId = rs.getInt("ID");
                         returnValue.aIdNummer = rs.getString("IDNUMMER");
-                        returnValue.aSkemaOpdat = rs.getDate("SKEMAOPDAT");
+                        returnValue.aSkemaOpdat = rs.getTimestamp("SKEMAOPDAT");
                         return returnValue;
                     }
                 }, "T_ADM" + year, id);
@@ -126,11 +132,13 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
             aPendingSyncStructsForYear.put(year, returnValue);
             aLog.debug("fetched " + returnValue.size() + " for " + year);
         }
+        mon.stop();
         return returnValue;
     }
 
     @Override
     public void commit(int year, MinipasSyncStructure syncStructure) {
+        Monitor mon = MonitorFactory.start("MinipasSyncDAOImpl.commit");
         for (MinipasTADM minipasTADM : syncStructure.getCreated()) {
             Date skemaopdat = minipasTADM.getSkemaopdat() == null ? minipasTADM.getSkemaopret() : minipasTADM
                     .getSkemaopdat();
@@ -139,16 +147,22 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
                     minipasTADM.getIdnummer(), skemaopdat, "T_ADM" + year);
         }
         for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("commit: updating " + minipasTADM.getSkemaopdat() + " for " + minipasTADM.getIdnummer());
+            }
             jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT=? WHERE IDNUMMER=?",
                     minipasTADM.getSkemaopdat(), minipasTADM.getIdnummer());
         }
+        mon.stop();
     }
 
     @Override
     public void commitDeleted(int year, Collection<String> deleted) {
+        Monitor mon = MonitorFactory.start("MinipasSyncDAOImpl.commitDeleted");
         for (String idnummer : deleted) {
             jdbc.update("DELETE FROM " + tableprefix + "T_MINIPAS_SYNC WHERE IDNUMMER=?", idnummer);
         }
+        mon.stop();
     }
 
     public static class MinipasSyncStructureImpl implements MinipasSyncStructure {
@@ -174,6 +188,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
 
     @Override
     public Collection<String> getDeletedIdnummers(int year) {
+        Monitor mon = MonitorFactory.start("MinipasSyncDAOImpl.getDeletedIdnummers");
         Collection<String> returnValue = new ArrayList<String>();
         Map<String, SyncStruct> map = aPendingSyncStructsForYear.remove(year);
         if (map != null) {
@@ -181,6 +196,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
         } else {
             aLog.error("no rows fetched for year " + year);
         }
+        mon.stop();
         return returnValue;
     }
 }

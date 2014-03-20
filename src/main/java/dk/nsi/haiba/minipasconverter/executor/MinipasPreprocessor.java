@@ -26,6 +26,8 @@
  */
 package dk.nsi.haiba.minipasconverter.executor;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.Collection;
 import java.util.Date;
 
@@ -34,6 +36,9 @@ import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
+
+import com.jamonapi.Monitor;
+import com.jamonapi.MonitorFactory;
 
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
 import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
@@ -126,6 +131,10 @@ public class MinipasPreprocessor {
                 }
                 aLog.info("Importer done");
                 currentImportProgress.addStatusLine("done");
+            } catch (RuntimeException t) {
+                currentImportProgress.addStatusLine("Aborted due to error:");
+                currentImportProgress.addStatusLine(getStackTrace(t));
+                throw t;
             } finally {
                 aLog.info("Stopped processing, manual=" + manual);
                 running = false;
@@ -133,6 +142,13 @@ public class MinipasPreprocessor {
         } else {
             aLog.warn("Importer already running");
         }
+    }
+
+    public static String getStackTrace(final Throwable throwable) {
+        final StringWriter sw = new StringWriter();
+        final PrintWriter pw = new PrintWriter(sw, true);
+        throwable.printStackTrace(pw);
+        return sw.getBuffer().toString();
     }
 
     public void doImport(int currentyear, int yearsback) {
@@ -206,24 +222,28 @@ public class MinipasPreprocessor {
     }
 
     private void handleUpdated(String year, Collection<MinipasTADM> updated) {
+        Monitor mon = MonitorFactory.start("MinipasPreprocessor.handleUpdated()");
         haibaDao.resetAdmD_IMPORTDTO(updated);
         for (MinipasTADM minipasTADM : updated) {
             haibaDao.clearKoder(minipasTADM.getIdnummer());
-            Collection<MinipasTSKSUBE_OPR> ubeoprs = minipasDao.getMinipasSKSUBE_OPR(year, minipasTADM.getIdnummer());
+            Collection<MinipasTSKSUBE_OPR> ubeoprs = minipasDao.getMinipasSKSUBE_OPR(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromSksUbeOpr(minipasTADM, ubeoprs);
-            Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getIdnummer());
+            Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromDiag(minipasTADM, diags);
         }
+        mon.stop();
     }
 
     private void handleCreated(String year, Collection<MinipasTADM> created) {
+        Monitor mon = MonitorFactory.start("MinipasPreprocessor.handleCreated()");
         haibaDao.createAdm(created);
         for (MinipasTADM minipasTADM : created) {
-            Collection<MinipasTSKSUBE_OPR> ubeoprs = minipasDao.getMinipasSKSUBE_OPR(year, minipasTADM.getIdnummer());
+            Collection<MinipasTSKSUBE_OPR> ubeoprs = minipasDao.getMinipasSKSUBE_OPR(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromSksUbeOpr(minipasTADM, ubeoprs);
-            Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getIdnummer());
+            Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromDiag(minipasTADM, diags);
         }
+        mon.stop();
     }
 
     private int getMaxRecnum(Collection<MinipasTADM> minipasTADMs) {
