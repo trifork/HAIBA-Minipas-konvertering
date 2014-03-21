@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,6 +48,7 @@ import com.jamonapi.MonitorFactory;
 
 import dk.nsi.haiba.minipasconverter.dao.DAOException;
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
+import dk.nsi.haiba.minipasconverter.model.MinipasRowWithRecnum;
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
 import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
@@ -64,11 +66,18 @@ public class MinipasDAOImpl implements MinipasDAO {
     String minipasPrefix;
 
     Map<Integer, Collection<MinipasTSKSUBE_OPR>> aRecnumToSKSUBECollectionMap;
-    String aCurrentSKSUBETable;
+    String aCurrentSKSUBETableYear;
     Map<Integer, Collection<MinipasTSKSUBE_OPR>> aRecnumToSKSOPRCollectionMap;
-    String aCurrentSKSOPRTable;
+    String aCurrentSKSOPRTableYear;
     Map<Integer, Collection<MinipasTDIAG>> aRecnumToDIAGCollectionMap;
-    String aCurrentDIAGTable;
+    String aCurrentDIAGTableYear;
+
+    @Override
+    public void reset() {
+        aRecnumToSKSUBECollectionMap = null;
+        aRecnumToSKSOPRCollectionMap = null;
+        aRecnumToDIAGCollectionMap = null;
+    }
 
     @Override
     public Collection<MinipasTADM> getMinipasTADM(String year, long fromKRecnum, int batchSize) {
@@ -143,107 +152,201 @@ public class MinipasDAOImpl implements MinipasDAO {
     public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, int recnum) {
         Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSUBE_OPR");
         List<MinipasTSKSUBE_OPR> returnValue = new ArrayList<MinipasTSKSUBE_OPR>();
-        returnValue.addAll(getMinipasSKSUBE_OPRFromTable("T_SKSUBE" + year, recnum));
-        returnValue.addAll(getMinipasSKSUBE_OPRFromTable("T_SKSOPR" + year, recnum));
+        returnValue.addAll(getMinipasSKSOPR(year, recnum));
+        returnValue.addAll(getMinipasSKSUBE(year, recnum));
         mon.stop();
         return returnValue;
-    }
-
-    private Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPRFromTable(String tableName, int recnum) {
-        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSUBE_OPRFromTable");
-        // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
-        // check if these are correct v_types to put into T_KODER XXX
-        // 'ube'->'und' for now, possibly also 'til'?
-        final String type = tableName.toLowerCase().contains("ube") ? "und" : "opr";
-        List<MinipasTSKSUBE_OPR> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
-                + " WHERE V_RECNUM = ?", new RowMapper<MinipasTSKSUBE_OPR>() {
-            @Override
-            public MinipasTSKSUBE_OPR mapRow(ResultSet rs, int rowNum) throws SQLException {
-                MinipasTSKSUBE_OPR returnValue = new MinipasTSKSUBE_OPR();
-                returnValue.setC_oafd(rs.getString("C_OAFD"));
-                returnValue.setC_opr(rs.getString("C_OPR"));
-                returnValue.setC_oprart(rs.getString("C_OPRART"));
-                returnValue.setC_osgh(rs.getString("C_OSGH"));
-                returnValue.setC_tilopr(rs.getString("C_TILOPR"));
-                returnValue.setD_odto(rs.getTimestamp("D_ODTO"));
-                returnValue.setIdnummer(rs.getString("IDNUMMER"));
-                returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
-                returnValue.setV_recnum(rs.getInt("V_RECNUM"));
-                returnValue.setType(type);
-                return returnValue;
-            }
-        }, recnum);
-        mon.stop();
-        return query;
     }
 
     @Override
     public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum) {
         Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasDIAG");
-        if (!year.equals(aCurrentDIAGTable)) {
+        if (!year.equals(aCurrentDIAGTableYear)) {
             // new cache
-            aCurrentDIAGTable = year;
-            aRecnumToDIAGCollectionMap = new HashMap<Integer, Collection<MinipasTDIAG>>();
-            RowMapper<MinipasTDIAG> rowMapper = new RowMapper<MinipasTDIAG>() {
-                @Override
-                public MinipasTDIAG mapRow(ResultSet rs, int rowNum) throws SQLException {
-                    MinipasTDIAG returnValue = new MinipasTDIAG();
-                    returnValue.setC_diag(rs.getString("C_DIAG"));
-                    returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
-                    returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
-                    returnValue.setIdnummer(rs.getString("IDNUMMER"));
-                    returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
-                    returnValue.setV_recnum(rs.getInt("V_RECNUM"));
-                    return returnValue;
-                }
-            };
-            
-            int queryRecnum = -1;
-            Collection<MinipasTDIAG> query = null;
-            int batchSize = 1000;
-            while (query == null || !query.isEmpty()) {
-                query = jdbc.query("SELECT * FROM " + minipasPrefix + "T_DIAG" + year
-                        + " WHERE V_RECNUM > ? ORDER BY V_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY", rowMapper,
-                        queryRecnum);
-
-                for (MinipasTDIAG minipasTDIAG : query) {
-                    // store in cache
-                    Collection<MinipasTDIAG> collection = aRecnumToDIAGCollectionMap.get(minipasTDIAG.getV_recnum());
-                    if (collection == null) {
-                        collection = new ArrayList<MinipasTDIAG>();
-                        aRecnumToDIAGCollectionMap.put(minipasTDIAG.getV_recnum(), collection);
-                    }
-                    collection.add(minipasTDIAG);
-
-                    // prepare next query
-                    queryRecnum = Math.max(queryRecnum, minipasTDIAG.getV_recnum());
-                }
-            }
+            aCurrentDIAGTableYear = year;
+            aRecnumToDIAGCollectionMap = null;
         }
-        // 99.9% just goes here
+        
+        if (doBuildCache(aRecnumToDIAGCollectionMap, recnum)) {
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("getMinipasDIAG: rebuilding cache");
+            } 
+            // start or cache just got obsolete, refill it
+            RowMapper<MinipasTDIAG> rowMapper = new MyMinipasTDIAGRowMapper();
+            String tableName = "T_DIAG" + year;
+
+            // evict
+            aRecnumToDIAGCollectionMap = new HashMap<Integer, Collection<MinipasTDIAG>>();
+
+            // start from the requested recnum, assuming to be asked in a recnum order
+            buildCache(aRecnumToDIAGCollectionMap, rowMapper, tableName, recnum);
+        }
+
+        // most just goes here
         Collection<MinipasTDIAG> collection = aRecnumToDIAGCollectionMap.get(recnum);
+        if (collection == null) {
+            collection = new ArrayList<MinipasTDIAG>();
+        }
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("getMinipasDIAG: " + (collection.isEmpty() ? "none" : collection.size()) + " for " + recnum);
+        }
         mon.stop();
         return collection;
     }
-    // @Override
-    // public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum) {
-    // Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasDIAG");
-    // // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
-    // Collection<MinipasTDIAG> query = jdbc.query("SELECT * FROM " + minipasPrefix + "T_DIAG" + year
-    // + " WHERE V_RECNUM = ?", new RowMapper<MinipasTDIAG>() {
-    // @Override
-    // public MinipasTDIAG mapRow(ResultSet rs, int rowNum) throws SQLException {
-    // MinipasTDIAG returnValue = new MinipasTDIAG();
-    // returnValue.setC_diag(rs.getString("C_DIAG"));
-    // returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
-    // returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
-    // returnValue.setIdnummer(rs.getString("IDNUMMER"));
-    // returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
-    // returnValue.setV_recnum(rs.getInt("V_RECNUM"));
-    // return returnValue;
-    // }
-    // }, recnum);
-    // mon.stop();
-    // return query;
-    // }
+
+    private Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE(String year, int recnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSUBE");
+        if (!year.equals(aCurrentSKSUBETableYear)) {
+            // new cache
+            aCurrentSKSUBETableYear = year;
+            aRecnumToSKSUBECollectionMap = null;
+        }
+
+        if (doBuildCache(aRecnumToSKSUBECollectionMap, recnum)) {
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("getMinipasSKSUBE: rebuilding cache");
+            } 
+            // start or cache just got obsolete, refill it
+            RowMapper<MinipasTSKSUBE_OPR> rowMapper = new MyMinipasTSKSUBE_OPRRowMapper("und");
+            String tableName = "T_SKSUBE" + year;
+
+            // evict
+            aRecnumToSKSUBECollectionMap = new HashMap<Integer, Collection<MinipasTSKSUBE_OPR>>();
+
+            // start from the requested recnum, assuming to be asked in a recnum order
+            buildCache(aRecnumToSKSUBECollectionMap, rowMapper, tableName, recnum);
+        }
+
+        // most just goes here
+        Collection<MinipasTSKSUBE_OPR> collection = aRecnumToSKSUBECollectionMap.get(recnum);
+        if (collection == null) {
+            collection = new ArrayList<MinipasTSKSUBE_OPR>();
+        }
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("getMinipasSKSUBE: " + (collection.isEmpty() ? "none" : collection.size()) + " for " + recnum);
+        }
+        mon.stop();
+        return collection;
+    }
+
+    private Collection<MinipasTSKSUBE_OPR> getMinipasSKSOPR(String year, int recnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSOPR");
+        if (!year.equals(aCurrentSKSOPRTableYear)) {
+            // new cache
+            aCurrentSKSOPRTableYear = year;
+            aRecnumToSKSOPRCollectionMap = null;
+        }
+
+        if (doBuildCache(aRecnumToSKSOPRCollectionMap, recnum)) {
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("getMinipasSKSOPR: rebuilding cache");
+            } 
+            
+            // start or cache just got obsolete, refill it
+            RowMapper<MinipasTSKSUBE_OPR> rowMapper = new MyMinipasTSKSUBE_OPRRowMapper("opr");
+            String tableName = "T_SKSOPR" + year;
+
+            // evict
+            aRecnumToSKSOPRCollectionMap = new HashMap<Integer, Collection<MinipasTSKSUBE_OPR>>();
+
+            // start from the requested recnum, assuming to be asked in a recnum order
+            buildCache(aRecnumToSKSOPRCollectionMap, rowMapper, tableName, recnum);
+        }
+
+        // most just goes here
+        Collection<MinipasTSKSUBE_OPR> collection = aRecnumToSKSOPRCollectionMap.get(recnum);
+        if (collection == null) {
+            collection = new ArrayList<MinipasTSKSUBE_OPR>();
+        }
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("getMinipasSKSOPR: " + (collection.isEmpty() ? "none" : collection.size()) + " for " + recnum);
+        }
+        mon.stop();
+        return collection;
+    }
+
+    private <T extends MinipasRowWithRecnum> boolean doBuildCache(Map<Integer, Collection<T>> map, int recnum) {
+        // rebuild if we have no map, if the recnum is not in the map or if the recnum is not inside the range of the
+        // recnums last fetched
+        boolean returnValue = map == null || (!map.containsKey(recnum) && recnumNotInKeyRange(map, recnum));
+        return returnValue;
+    }
+
+    private <T extends MinipasRowWithRecnum> boolean recnumNotInKeyRange(Map<Integer, Collection<T>> map, int recnum) {
+        boolean returnValue = false;
+        int min = Integer.MAX_VALUE;
+        int max = Integer.MIN_VALUE;
+        Set<Integer> keySet = map.keySet();
+        for (Integer key : keySet) {
+            min = Math.min(min, key);
+            max = Math.max(max, key);
+        }
+        returnValue = (recnum < min) || (max < recnum);
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("recnumNotInKeyRange: " + returnValue + ", min=" + min + ", max=" + max + ", recnum=" + recnum);
+        }
+        return returnValue;
+    }
+
+    // All this assumes that we are asked in an recnum ordered way. if lowest recnums are here first, then we request
+    // from this recnum and forward a batch size. when this batch is done, we get a new batch and so on
+    public <T extends MinipasRowWithRecnum> void buildCache(Map<Integer, Collection<T>> destination,
+            RowMapper<T> rowMapper, String tableName, int currentRecnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.buildCache");
+        int batchSize = 1000;
+        List<T> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
+                + " WHERE V_RECNUM >= ? ORDER BY V_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY", rowMapper,
+                currentRecnum);
+
+        // be sure to tell that we have already been here for this recnum, even if there is no data
+        destination.put(currentRecnum, new ArrayList<T>());
+        for (T t : query) {
+            // store in cache
+            Collection<T> collection = destination.get(t.getV_recnum());
+            if (collection == null) {
+                collection = new ArrayList<T>();
+                destination.put(t.getV_recnum(), collection);
+            }
+            collection.add(t);
+        }
+        mon.stop();
+    }
+
+    private final class MyMinipasTSKSUBE_OPRRowMapper implements RowMapper<MinipasTSKSUBE_OPR> {
+        private final String aType;
+
+        private MyMinipasTSKSUBE_OPRRowMapper(String type) {
+            aType = type;
+        }
+
+        @Override
+        public MinipasTSKSUBE_OPR mapRow(ResultSet rs, int rowNum) throws SQLException {
+            MinipasTSKSUBE_OPR returnValue = new MinipasTSKSUBE_OPR();
+            returnValue.setC_oafd(rs.getString("C_OAFD"));
+            returnValue.setC_opr(rs.getString("C_OPR"));
+            returnValue.setC_oprart(rs.getString("C_OPRART"));
+            returnValue.setC_osgh(rs.getString("C_OSGH"));
+            returnValue.setC_tilopr(rs.getString("C_TILOPR"));
+            returnValue.setD_odto(rs.getTimestamp("D_ODTO"));
+            returnValue.setIdnummer(rs.getString("IDNUMMER"));
+            returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
+            returnValue.setV_recnum(rs.getInt("V_RECNUM"));
+            returnValue.setType(aType);
+            return returnValue;
+        }
+    }
+
+    private final class MyMinipasTDIAGRowMapper implements RowMapper<MinipasTDIAG> {
+        @Override
+        public MinipasTDIAG mapRow(ResultSet rs, int rowNum) throws SQLException {
+            MinipasTDIAG returnValue = new MinipasTDIAG();
+            returnValue.setC_diag(rs.getString("C_DIAG"));
+            returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
+            returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
+            returnValue.setIdnummer(rs.getString("IDNUMMER"));
+            returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
+            returnValue.setV_recnum(rs.getInt("V_RECNUM"));
+            return returnValue;
+        }
+    }
 }

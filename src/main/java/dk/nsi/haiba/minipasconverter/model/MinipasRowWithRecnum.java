@@ -26,62 +26,6 @@
  */
 package dk.nsi.haiba.minipasconverter.model;
 
-import java.util.Date;
-
-public class MinipasTDIAG implements MinipasRowWithRecnum {
-    private int v_recnum;
-    private String idnummer;
-    private String c_diag;
-    private String c_diagtype;
-    private String c_tildiag;
-    private Date indberetningsdato;
-
-    @Override
-    public int getV_recnum() {
-        return v_recnum;
-    }
-
-    public void setV_recnum(int v_recnum) {
-        this.v_recnum = v_recnum;
-    }
-
-    public String getIdnummer() {
-        return idnummer;
-    }
-
-    public void setIdnummer(String idnummer) {
-        this.idnummer = idnummer;
-    }
-
-    public String getC_diag() {
-        return c_diag;
-    }
-
-    public void setC_diag(String c_diag) {
-        this.c_diag = c_diag;
-    }
-
-    public String getC_diagtype() {
-        return c_diagtype;
-    }
-
-    public void setC_diagtype(String c_diagtype) {
-        this.c_diagtype = c_diagtype;
-    }
-
-    public String getC_tildiag() {
-        return c_tildiag;
-    }
-
-    public void setC_tildiag(String c_tildiag) {
-        this.c_tildiag = c_tildiag;
-    }
-
-    public Date getIndberetningsdato() {
-        return indberetningsdato;
-    }
-
-    public void setIndberetningsdato(Date indberetningsdato) {
-        this.indberetningsdato = indberetningsdato;
-    }
+public interface MinipasRowWithRecnum {
+    public int getV_recnum();
 }

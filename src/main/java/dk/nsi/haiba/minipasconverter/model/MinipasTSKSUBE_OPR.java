@@ -28,7 +28,7 @@ package dk.nsi.haiba.minipasconverter.model;
 
 import java.util.Date;
 
-public class MinipasTSKSUBE_OPR {
+public class MinipasTSKSUBE_OPR implements MinipasRowWithRecnum {
     private int v_recnum;
     private String idnummer;
     private String c_tilopr;
@@ -48,6 +48,7 @@ public class MinipasTSKSUBE_OPR {
         this.type = type;
     }
 
+    @Override
     public int getV_recnum() {
         return v_recnum;
     }

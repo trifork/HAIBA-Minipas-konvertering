@@ -46,4 +46,6 @@ public interface MinipasDAO {
     public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum);
 
     public long lastReturnCodeElseNegativeOne();
+
+    void reset();
 }

@@ -158,6 +158,7 @@ public class MinipasPreprocessor {
         minipasSyncDao.cleanupRowsFromTablesOlderThanYear(cleanupYear);
         haibaDao.importStarted();
         currentImportProgress.addStatusLine("dots are batches of size " + batchSize);
+        minipasDao.reset(); // flush previous caches
         for (int year = cleanupYear; year <= currentyear; year++) {
             int kRecnum = -1;
             String sYear = "" + year;
