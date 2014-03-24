@@ -91,6 +91,9 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
             if (skemaopdat == null) {
                 returnValue.aCreated.add(minipasTADM);
             } else if (!skemaopdat.equals(d)) {
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("test: " + skemaopdat + "!=" + d + " for " + minipasTADM.getIdnummer());
+                }
                 returnValue.aUpdated.add(minipasTADM);
             }
         }
@@ -193,6 +196,9 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
         Map<String, SyncStruct> map = aPendingSyncStructsForYear.remove(year);
         if (map != null) {
             returnValue = map.keySet();
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("getDeletedIdnummers: year " + year + ":" + returnValue);
+            }
         } else {
             aLog.error("no rows fetched for year " + year);
         }
