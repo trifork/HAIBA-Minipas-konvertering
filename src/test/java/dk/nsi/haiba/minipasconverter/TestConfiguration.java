@@ -30,9 +30,9 @@ import java.sql.Driver;
 
 import javax.sql.DataSource;
 
-import org.junit.Ignore;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
@@ -41,11 +41,24 @@ import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import dk.nsi.haiba.minipasconverter.config.MinipasConverterConfiguration;
+import dk.nsi.haiba.minipasconverter.dao.MinipasSyncDAO;
+import dk.nsi.haiba.minipasconverter.dao.impl.MinipasSyncDAOImpl;
 
 @Configuration
 @EnableTransactionManagement
 @PropertySource("test.properties")
 public class TestConfiguration extends MinipasConverterConfiguration {
+    @Value("${test.mysql.port}")
+    private int mysqlPort;
+    @Value("${test.mysql.haibadbname}")
+    private String testHAIBADbName;
+    @Value("${test.mysql.haibadbusername}")
+    private String testHAIBADbUsername;
+    @Value("${test.mysql.haibadbpassword}")
+    private String testHAIBADbPassword;
+    @Value("${jdbc.haiba.dialect:MSSQL}")
+    String haibadialect;
+
     @Bean
     public DataSource minipasDataSource() throws Exception {
         String jdbcUrlPrefix = "jdbc:db2://127.0.0.1:50000/HAIBA";
@@ -57,12 +70,18 @@ public class TestConfiguration extends MinipasConverterConfiguration {
 
     @Bean
     public DataSource haibaDataSource() throws Exception {
-        return Mockito.mock(DataSource.class);
+        String jdbcUrlPrefix = "jdbc:mysql://127.0.0.1:" + mysqlPort + "/";
+
+        return new SimpleDriverDataSource(new com.mysql.jdbc.Driver(), jdbcUrlPrefix + testHAIBADbName
+                + "?createDatabaseIfNotExist=true", testHAIBADbUsername, testHAIBADbPassword);
     }
 
     @Bean
     public DataSource haibaSyncDataSource() throws Exception {
-        return Mockito.mock(DataSource.class);
+        String jdbcUrlPrefix = "jdbc:mysql://127.0.0.1:" + mysqlPort + "/";
+
+        return new SimpleDriverDataSource(new com.mysql.jdbc.Driver(), jdbcUrlPrefix + testHAIBADbName
+                + "?createDatabaseIfNotExist=true", testHAIBADbUsername, testHAIBADbPassword);
     }
 
     @Bean
@@ -71,16 +90,17 @@ public class TestConfiguration extends MinipasConverterConfiguration {
     }
 
     @Bean
-    public JdbcTemplate minipasSyncJdbcTemplate() {
-        return Mockito.mock(JdbcTemplate.class);
+    public JdbcTemplate minipasSyncJdbcTemplate(@Qualifier("haibaSyncDataSource") DataSource ds) {
+        return new JdbcTemplate(ds);
     }
 
     @Bean
-    public JdbcTemplate minipasHaibaJdbcTemplate() {
-        return Mockito.mock(JdbcTemplate.class);
+    public JdbcTemplate minipasHaibaJdbcTemplate(@Qualifier("haibaDataSource") DataSource ds) {
+        return new JdbcTemplate(ds);
+    }
+    
+    @Bean
+    public MinipasSyncDAO minipasSyncDAO() {
+        return new MinipasSyncDAOImpl(haibadialect);
     }
 }
-
-
-
-
