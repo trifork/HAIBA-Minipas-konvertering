@@ -159,8 +159,9 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     public void setDeleted(String idnummer) {
         try {
             Long newestOpenId = getNewestSyncId();
-            jdbc.update("INSERT INTO T_LOG_SYNC_HISTORY (V_SYNC_ID, V_RECNUM, C_ACTION_TYPE) VALUES (?, ?, 'DELETE')",
-                    newestOpenId, idnummer);
+            jdbc.update("INSERT INTO " + tableprefix
+                    + "T_LOG_SYNC_HISTORY (V_SYNC_ID, V_RECNUM, C_ACTION_TYPE) VALUES (?, ?, 'DELETE')", newestOpenId,
+                    idnummer);
         } catch (EmptyResultDataAccessException e) {
             aLog.debug("setDeleted: it seems we do not have any open statuses, let's not update");
         }
