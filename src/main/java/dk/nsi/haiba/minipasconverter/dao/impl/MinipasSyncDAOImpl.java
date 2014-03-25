@@ -67,6 +67,11 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
     String tableprefix;
 
     @Override
+    public void reset() {
+        aPendingSyncStructsForYear.clear();
+    }
+
+    @Override
     public void cleanupRowsFromTablesOlderThanYear(int year) {
         // SOURCE_TABLE_NAME has values like T_ADM2010. the year part starts at the 6th position (1 based index)
         int update = jdbc.update("DELETE FROM " + tableprefix

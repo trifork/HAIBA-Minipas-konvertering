@@ -158,8 +158,13 @@ public class MinipasPreprocessor {
         minipasSyncDao.cleanupRowsFromTablesOlderThanYear(cleanupYear);
         haibaDao.importStarted();
         currentImportProgress.addStatusLine("dots are batches of size " + batchSize);
-        minipasDao.reset(); // flush previous caches
+        // flush previous caches
+        minipasDao.reset();
+        minipasSyncDao.reset();
         for (int year = cleanupYear; year <= currentyear; year++) {
+            int createdCount = 0;
+            int updatedCount = 0;
+            int deletedCount = 0;
             int kRecnum = -1;
             String sYear = "" + year;
             currentImportProgress.addStatusLine("processing year " + sYear);
@@ -181,6 +186,8 @@ public class MinipasPreprocessor {
                     aLog.trace("doImport: tested, got " + syncStructure.getCreated().size() + " created and "
                             + syncStructure.getUpdated().size() + " updated");
                 }
+                createdCount += syncStructure.getCreated().size();
+                updatedCount += syncStructure.getUpdated().size();
                 handleCreated(sYear, syncStructure.getCreated());
                 if (aLog.isTraceEnabled()) {
                     aLog.trace("doImport: handled created");
@@ -201,8 +208,11 @@ public class MinipasPreprocessor {
 
             // ask sync dao what we haven't mentioned yet - they are deleted
             Collection<String> deleted = minipasSyncDao.getDeletedIdnummers(year);
+            deletedCount += deleted.size();
             handleDeleted(sYear, deleted);
             minipasSyncDao.commitDeleted(year, deleted);
+            currentImportProgress.addStatusLine("year " + year + " done. created:" + createdCount + ", updated:"
+                    + updatedCount + ", deleted:" + deletedCount);
         }
     }
 

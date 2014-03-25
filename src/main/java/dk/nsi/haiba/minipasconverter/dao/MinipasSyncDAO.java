@@ -46,4 +46,6 @@ public interface MinipasSyncDAO {
     }
 
     public Collection<String> getDeletedIdnummers(int year);
+
+    void reset();
 }
