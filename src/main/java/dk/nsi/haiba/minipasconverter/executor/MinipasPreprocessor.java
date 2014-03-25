@@ -61,6 +61,9 @@ public class MinipasPreprocessor {
     @Value("${minipas.waitperiodminutes:30}")
     int waitPeriodMinutes;
 
+    @Value("${minipas.yearstotal:5}")
+    int yearstotal;
+
     @Autowired
     MinipasDAO minipasDao;
 
@@ -91,8 +94,6 @@ public class MinipasPreprocessor {
         if (!running) {
             running = true;
             currentImportProgress.reset();
-            int currentyear = getYear();
-            int yearsback = 5;
             try {
                 int retries = noOfRetries;
                 boolean doRetry = true;
@@ -105,17 +106,15 @@ public class MinipasPreprocessor {
                         aLog.warn(status);
                         doRetry = false;
                     } else if (minipasOk(lastReturnCodeElseNegativeOne)) {
-                        doImport(currentyear, yearsback);
+                        doImport();
                         doRetry = false;
                     } else {
                         retries--;
                         if (retries >= 0) {
-                            String status = "MINIPAS is not ready for import, MINIPAS is not ready, retrying "
-                                    + (noOfRetries - retries) + " of " + noOfRetries + ", waiting " + waitPeriodMinutes
-                                    + " minutes";
+                            String status = "MINIPAS is not ready for import, retrying " + (noOfRetries - retries)
+                                    + " of " + noOfRetries + ", waiting " + waitPeriodMinutes + " minutes";
                             currentImportProgress.addStatusLine(status);
                             aLog.warn(status);
-                            System.out.println(status);
                             try {
                                 Thread.sleep(waitPeriodMinutes * 60 * 1000);
                             } catch (InterruptedException e) {
@@ -151,17 +150,18 @@ public class MinipasPreprocessor {
         return sw.getBuffer().toString();
     }
 
-    public void doImport(int currentyear, int yearsback) {
+    public void doImport() {
         // cleanup - will only cleanup the sync db, not the data already converted and imported
-        int cleanupYear = currentyear - yearsback + 1;
-        currentImportProgress.addStatusLine("cleaning up data older than " + cleanupYear);
-        minipasSyncDao.cleanupRowsFromTablesOlderThanYear(cleanupYear);
+        int currentyear = getYear();
+        int firstYear = currentyear - yearstotal + 1;
+        currentImportProgress.addStatusLine("cleaning up data older than " + firstYear);
+        minipasSyncDao.cleanupRowsFromTablesOlderThanYear(firstYear);
         haibaDao.importStarted();
         currentImportProgress.addStatusLine("dots are batches of size " + batchSize);
         // flush previous caches
         minipasDao.reset();
         minipasSyncDao.reset();
-        for (int year = cleanupYear; year <= currentyear; year++) {
+        for (int year = firstYear; year <= currentyear; year++) {
             int createdCount = 0;
             int updatedCount = 0;
             int deletedCount = 0;
