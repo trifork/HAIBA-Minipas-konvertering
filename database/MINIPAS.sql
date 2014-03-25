@@ -16,4 +16,69 @@ CREATE TABLE T_MINIPAS_UGL_STATUS (
  C_HOSTNAME VARCHAR(255),
  TS_OPDATDTO TIMESTAMP
 )
+CREATE TABLE T_ADM2014
+  ( 
+     K_RECNUM   INTEGER NOT NULL, 
+     IDNUMMER   CHARACTER(38), 
+     SKEMAOPDAT TIMESTAMP, 
+     SKEMAOPRET TIMESTAMP, 
+     C_SGH      CHARACTER(4), 
+     C_AFD      CHARACTER(3), 
+     C_PATTYPE  CHARACTER(1), 
+     C_UDM      CHARACTER(1), 
+     V_CPR      CHARACTER(10), 
+     D_INDDTO   DATE, 
+     D_HENDTO   DATE, 
+     C_INDM     CHARACTER(1), 
+     C_HENM     CHARACTER(1), 
+     D_UDDTO    DATE, 
+     C_KONTAARS CHARACTER(1), 
+     C_KOM      CHARACTER(3), 
+     C_SGHAMT   CHARACTER(2), 
+     V_BEHDAGE  SMALLINT, 
+     V_SENGDAGE SMALLINT, 
+     C_SPEC     CHARACTER(2), 
+     V_ALDER    SMALLINT, 
+     C_SEX      CHARACTER(1), 
+     C_ADIAG    CHARACTER(10), 
+     C_BOPAMT   CHARACTER(2), 
+     C_HSGH     CHARACTER(4), 
+     C_HAFD     CHARACTER(3), 
+     V_PID      CHARACTER(24) FOR bit DATA 
+  );
+  
+  CREATE TABLE T_DIAG2014
+  ( 
+     V_RECNUM          INTEGER NOT NULL, 
+     IDNUMMER          CHARACTER(38), 
+     C_DIAG            CHARACTER(10), 
+     C_DIAGTYPE        CHARACTER(1), 
+     C_TILDIAG         CHARACTER(10), 
+     INDBERETNINGSDATO TIMESTAMP 
+  ); 
+  
+  CREATE TABLE T_SKSOPR2014
+  ( 
+     V_RECNUM          INTEGER NOT NULL, 
+     IDNUMMER          CHARACTER(38), 
+     C_TILOPR          CHARACTER(10), 
+     C_OPRART          CHARACTER(1), 
+     D_ODTO            DATE, 
+     C_OSGH            CHARACTER(4), 
+     C_OAFD            CHARACTER(3), 
+     C_OPR             CHARACTER(10), 
+     INDBERETNINGSDATO TIMESTAMP 
+  ); 
 
+CREATE TABLE T_SKSUBE2014
+  ( 
+     V_RECNUM          INTEGER NOT NULL, 
+     IDNUMMER          CHARACTER(38), 
+     C_TILOPR          CHARACTER(10), 
+     C_OPRART          CHARACTER(1), 
+     D_ODTO            DATE, 
+     C_OSGH            CHARACTER(4), 
+     C_OAFD            CHARACTER(3), 
+     C_OPR             CHARACTER(10), 
+     INDBERETNINGSDATO TIMESTAMP 
+  ); 
