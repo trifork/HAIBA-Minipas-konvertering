@@ -141,7 +141,6 @@ public class MinipasDAOImpl implements MinipasDAO {
             return returnCode;
         } catch (EmptyResultDataAccessException e) {
             // LPR is not ready for Import
-            System.out.println("empty");
         } catch (RuntimeException e) {
             throw new DAOException("Error fetching database status from " + minipasPrefix + minipasStatusTableName, e);
         }
