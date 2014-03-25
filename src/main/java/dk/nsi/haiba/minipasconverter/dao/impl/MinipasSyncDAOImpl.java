@@ -83,7 +83,8 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
         Map<String, SyncStruct> pendingIdnummersForYear = getPendingIdNummersForYear(year);
         for (MinipasTADM minipasTADM : minipasRows) {
             Date skemaopdat = null;
-            SyncStruct syncStruct = pendingIdnummersForYear.get(minipasTADM.getIdnummer());
+            // remove the query result. the remains are considered deleted
+            SyncStruct syncStruct = pendingIdnummersForYear.remove(minipasTADM.getIdnummer());
             if (syncStruct != null) {
                 skemaopdat = syncStruct.aSkemaOpdat;
             }
