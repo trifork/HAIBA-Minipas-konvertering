@@ -39,6 +39,8 @@ public class CurrentImportProgress {
 
     public void reset() {
         synchronized (aMutex) {
+            aProgressDot = false;
+            aLineDotCount = 0;
             sb = new StringBuffer();
         }
     }
@@ -51,6 +53,7 @@ public class CurrentImportProgress {
             }
             sb.append(dateFormat.format(new Date()) + " " + status + "<br/>");
             aProgressDot = false;
+            aLineDotCount = 0;
         }
     }
 
