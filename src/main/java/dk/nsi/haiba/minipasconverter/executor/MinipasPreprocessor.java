@@ -211,8 +211,10 @@ public class MinipasPreprocessor {
             deletedCount += deleted.size();
             handleDeleted(sYear, deleted);
             minipasSyncDao.commitDeleted(year, deleted);
-            currentImportProgress.addStatusLine("year " + year + " done. created:" + createdCount + ", updated:"
-                    + updatedCount + ", deleted:" + deletedCount);
+            String status = "year " + year + " done. created:" + createdCount + ", updated:" + updatedCount
+                    + ", deleted:" + deletedCount;
+            aLog.info(status);
+            currentImportProgress.addStatusLine(status);
         }
     }
 
