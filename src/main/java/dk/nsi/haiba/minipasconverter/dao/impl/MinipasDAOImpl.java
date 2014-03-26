@@ -30,6 +30,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -297,7 +298,7 @@ public class MinipasDAOImpl implements MinipasDAO {
                 + " WHERE V_RECNUM >= ? ORDER BY V_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY", rowMapper,
                 currentRecnum);
 
-        // be sure to tell that we have already been here for this recnum, even if there is no data
+        // be sure to tell that we have already been here for this recnum, even if there is no data in the loop
         destination.put(currentRecnum, new ArrayList<T>());
         for (T t : query) {
             // store in cache
@@ -308,6 +309,11 @@ public class MinipasDAOImpl implements MinipasDAO {
             }
             collection.add(t);
         }
+        
+        // now drop the collection with the largest recnum as this may have been cut short (by the fetch limit)
+        Integer max_recnum = Collections.max(destination.keySet());
+        destination.remove(max_recnum);
+        
         mon.stop();
     }
 
