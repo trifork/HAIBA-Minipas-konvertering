@@ -28,6 +28,7 @@ package dk.nsi.haiba.minipasconverter.dao.impl;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Date;
@@ -51,6 +52,7 @@ import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
     private static final Logger aLog = Logger.getLogger(MinipasSyncDAOImpl.class);
     private Map<Integer, Map<String, SyncStruct>> aPendingSyncStructsForYear = new HashMap<Integer, Map<String, SyncStruct>>();
+    private static SimpleDateFormat aSimpleDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
 
     public MinipasSyncDAOImpl(String dialect) {
         super(dialect);
@@ -106,7 +108,8 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
                 returnValue.aCreated.add(minipasTADM);
             } else if (!skemaopdat.equals(d)) {
                 if (aLog.isTraceEnabled()) {
-                    aLog.trace("test: " + skemaopdat + "!=" + d + " for " + minipasTADM.getIdnummer());
+                    aLog.trace("test: " + aSimpleDateFormat.format(skemaopdat) + "!=" + d + " for "
+                            + minipasTADM.getIdnummer());
                 }
                 returnValue.aUpdated.add(minipasTADM);
             }
@@ -142,7 +145,7 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
                         SyncStruct returnValue = new SyncStruct();
                         returnValue.aId = rs.getInt("ID");
                         returnValue.aIdNummer = rs.getString("IDNUMMER");
-                        returnValue.aSkemaOpdat = rs.getTimestamp("SKEMAOPDAT");
+                        returnValue.aSkemaOpdat = new Date(rs.getLong("SKEMAOPDAT_MS"));
                         return returnValue;
                     }
                 }, "T_ADM" + year, id);
@@ -168,15 +171,15 @@ public class MinipasSyncDAOImpl extends CommonDAO implements MinipasSyncDAO {
             Date skemaopdat = minipasTADM.getSkemaopdat() == null ? minipasTADM.getSkemaopret() : minipasTADM
                     .getSkemaopdat();
             jdbc.update("INSERT INTO " + tableprefix
-                    + "T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
-                    minipasTADM.getIdnummer(), skemaopdat, "T_ADM" + year);
+                    + "T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT_MS, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
+                    minipasTADM.getIdnummer(), skemaopdat.getTime(), "T_ADM" + year);
         }
         for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
             if (aLog.isTraceEnabled()) {
                 aLog.trace("commit: updating " + minipasTADM.getSkemaopdat() + " for " + minipasTADM.getIdnummer());
             }
-            jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT=? WHERE IDNUMMER=?",
-                    minipasTADM.getSkemaopdat(), minipasTADM.getIdnummer());
+            jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT_MS=? WHERE IDNUMMER=?", minipasTADM
+                    .getSkemaopdat().getTime(), minipasTADM.getIdnummer());
         }
         mon.stop();
     }
