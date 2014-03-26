@@ -26,8 +26,20 @@
  */
 package dk.nsi.haiba.minipasconverter;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Date;
+import java.util.List;
+import java.util.Random;
+import java.util.UUID;
+
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
+import org.joda.time.DateTime;
+import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -43,13 +55,26 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
+import dk.nsi.haiba.minipasconverter.dao.MinipasSyncDAO;
+import dk.nsi.haiba.minipasconverter.dao.impl.MinipasSyncDAOImpl;
 import dk.nsi.haiba.minipasconverter.executor.MinipasPreprocessor;
+import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
+import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
+import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
 @Ignore // not able to run from maven without db2 driver
 public class PreprocessorTest {
+    private static final Logger aLog = Logger.getLogger(PreprocessorTest.class);
+    private static final String C_SGH = "sgh";
+    private static final String C_AFD = "afd";
+    private static final String C_PATTYPE = "1";
+    private static final String V_CPR = "2612482516";
+    private static final Date D_INDDTO = new DateTime(2013, 10, 10, 10, 10).toDate();
+    private static final Date D_UDDTO = new DateTime(2013, 10, 11, 10, 10).toDate();
+
     @Configuration
     @Import({ TestConfiguration.class })
     static class MyConfiguration {
@@ -63,6 +88,9 @@ public class PreprocessorTest {
     MinipasDAO minipasDAO;
 
     @Autowired
+    MinipasSyncDAO minipasSyncDAO;
+
+    @Autowired
     MinipasPreprocessor minipasPreprocessor;
 
     @Autowired
@@ -71,13 +99,222 @@ public class PreprocessorTest {
     @Autowired
     @Qualifier("minipasJdbcTemplate")
     JdbcTemplate minipasJdbc;
+    
+    @Autowired
+    @Qualifier("minipasSyncJdbcTemplate")
+    JdbcTemplate minipasSyncJdbc;
+    
+    @Autowired
+    @Qualifier("minipasHaibaJdbcTemplate")
+    JdbcTemplate haibaJdbc;
+
+    Random random = new Random(System.currentTimeMillis());
+    private int aKRecnum;
+
+    @Before
+    public void init() {
+        Logger.getLogger(MinipasPreprocessor.class).setLevel(Level.DEBUG);
+        Logger.getLogger(PreprocessorTest.class).setLevel(Level.DEBUG);
+        Logger.getLogger(MinipasSyncDAOImpl.class).setLevel(Level.TRACE);
+    }
 
     @Test
     public void testEmptyImport() {
-        minipasJdbc.update("delete from T_MINIPAS_UGL_STATUS");
-        // insert ok status
-        minipasJdbc.update("insert into T_MINIPAS_UGL_STATUS (K_ID, D_STARTDATETIME, D_ENDDATETIME, V_RETURNCODE) VALUES (1, '2014-03-10', '2014-03-11', 1)");
+        if (aLog.isDebugEnabled()) {
+            aLog.debug("testEmptyImport: ");
+        }
+        resetDb();
+        setImportFlagOk();
         minipasPreprocessor.doManualProcess();
-        assertTrue(true);
+        assertEquals(0, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
+        assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_koder"));
+        assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_adm"));
+    }
+
+    @Test
+    public void testUpdated() {
+        if (aLog.isDebugEnabled()) {
+            aLog.debug("testUpdated: ");
+        }
+        resetDb();
+        // insert ok status
+        setImportFlagOk();
+        MinipasTADM minipasTADM = createRandomTADM();
+        MinipasTDIAG minipasTDIAG = createRandomTDIAG(minipasTADM);
+        MinipasTSKSUBE_OPR minipasTSKSUBE = createRandomTSKSUBE_OPR(minipasTADM);
+        MinipasTSKSUBE_OPR minipasTSKSOPR = createRandomTSKSUBE_OPR(minipasTADM);
+
+        insertMinipasTADM(minipasTADM);
+        insertMinipasTDIAG(minipasTDIAG);
+        insertMinipasTSKSUBE_OPR(minipasTSKSUBE, "T_SKSUBE2014");
+        insertMinipasTSKSUBE_OPR(minipasTSKSOPR, "T_SKSOPR2014");
+
+        minipasPreprocessor.doManualProcess();
+
+        assertEquals(1, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
+        assertEquals(3, haibaJdbc.queryForInt("select count(*) from t_koder"));
+        assertEquals(1, haibaJdbc.queryForInt("select count(*) from t_adm"));
+        List<String> list = haibaJdbc.queryForList("select V_TYPE from t_koder where V_RECNUM=?", String.class, minipasTADM.getIdnummer());
+        assertTrue(list.contains("dia"));
+        assertTrue(list.contains("opr"));
+        assertTrue(list.contains("und"));
+
+        // simulate that the row is read
+        haibaJdbc.update("UPDATE T_ADM SET D_IMPORTDTO=? WHERE V_RECNUM=?", new Date(), minipasTADM.getIdnummer());
+        assertNotNull(haibaJdbc.queryForObject("select D_IMPORTDTO from t_adm WHERE V_RECNUM=?", Date.class,
+                minipasTADM.getIdnummer()));
+
+        insertMinipasTSKSUBE_OPR(createRandomTSKSUBE_OPR(minipasTADM), "T_SKSOPR2014");
+        insertMinipasTDIAG(createRandomTDIAG(minipasTADM));
+
+        // reset skemaopdat, indicating change
+        minipasJdbc.update("UPDATE T_ADM2014 SET SKEMAOPDAT=? WHERE IDNUMMER=?", new Date(), minipasTADM.getIdnummer());
+        minipasPreprocessor.doManualProcess();
+
+        // also test d_importdto is reset
+        assertNull(haibaJdbc.queryForObject("select D_IMPORTDTO from t_adm WHERE V_RECNUM=?", Date.class,
+                minipasTADM.getIdnummer()));
+        assertEquals(1, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
+        assertEquals(5, haibaJdbc.queryForInt("select count(*) from t_koder"));
+        assertEquals(1, haibaJdbc.queryForInt("select count(*) from t_adm"));
+    }
+
+    @Test
+    public void testDeleted() {
+        if (aLog.isDebugEnabled()) {
+            aLog.debug("testDeleted: ");
+        }
+        resetDb();
+        // insert ok status
+        setImportFlagOk();
+        MinipasTADM minipasTADM = createRandomTADM();
+        MinipasTDIAG minipasTDIAG = createRandomTDIAG(minipasTADM);
+        MinipasTSKSUBE_OPR minipasTSKSUBE = createRandomTSKSUBE_OPR(minipasTADM);
+        MinipasTSKSUBE_OPR minipasTSKSOPR = createRandomTSKSUBE_OPR(minipasTADM);
+
+        insertMinipasTADM(minipasTADM);
+        insertMinipasTDIAG(minipasTDIAG);
+        insertMinipasTSKSUBE_OPR(minipasTSKSUBE, "T_SKSUBE2014");
+        insertMinipasTSKSUBE_OPR(minipasTSKSOPR, "T_SKSOPR2014");
+
+        minipasPreprocessor.doManualProcess();
+
+        assertEquals(1, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
+        assertEquals(3, haibaJdbc.queryForInt("select count(*) from t_koder"));
+        assertEquals(1, haibaJdbc.queryForInt("select count(*) from t_adm"));
+        assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_log_sync_history"));
+
+        minipasJdbc.update("delete from T_DIAG2014");
+        minipasJdbc.update("delete from T_SKSOPR2014");
+        minipasJdbc.update("delete from T_SKSUBE2014");
+        minipasJdbc.update("delete from T_ADM2014");
+
+        minipasPreprocessor.doManualProcess();
+
+        assertEquals(0, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
+        assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_koder"));
+        assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_adm"));
+        assertEquals(1, haibaJdbc.queryForInt("select count(*) from t_log_sync_history"));
+        String deleted = haibaJdbc.queryForObject("select C_ACTION_TYPE from t_log_sync_history where v_recnum = ?",
+                String.class, minipasTADM.getIdnummer());
+        assertEquals("DELETE", deleted);
+    }
+
+    private void insertMinipasTSKSUBE_OPR(MinipasTSKSUBE_OPR m, String table) {
+        minipasJdbc.update("INSERT INTO " + table
+                + " (V_RECNUM, IDNUMMER, C_OPR, C_TILOPR, C_OPRART, INDBERETNINGSDATO) " + "VALUES (?, ?, ?, ?, ?, ?)",
+                m.getV_recnum(), m.getIdnummer(), m.getC_opr(), m.getC_tilopr(), m.getC_oprart(),
+                m.getIndberetningsdato());
+    }
+
+    private void insertMinipasTDIAG(MinipasTDIAG m) {
+        minipasJdbc.update(
+                "INSERT INTO T_DIAG2014 (V_RECNUM, IDNUMMER, C_DIAG, C_DIAGTYPE, C_TILDIAG, INDBERETNINGSDATO) "
+                        + "VALUES (?, ?, ?, ?, ?, ?)", m.getV_recnum(), m.getIdnummer(), m.getC_diag(),
+                m.getC_diagtype(), m.getC_tildiag(), m.getIndberetningsdato());
+    }
+
+    private MinipasTSKSUBE_OPR createRandomTSKSUBE_OPR(MinipasTADM minipasTADM) {
+        MinipasTSKSUBE_OPR returnValue = new MinipasTSKSUBE_OPR();
+        returnValue.setIdnummer(minipasTADM.getIdnummer());
+        returnValue.setV_recnum(minipasTADM.getK_recnum());
+
+        returnValue.setC_opr("opr");
+        returnValue.setC_tilopr("tilopr");
+        returnValue.setC_oprart("x");
+        returnValue.setIndberetningsdato(new Date());
+        return returnValue;
+    }
+
+    private MinipasTDIAG createRandomTDIAG(MinipasTADM minipasTADM) {
+        MinipasTDIAG returnValue = new MinipasTDIAG();
+        returnValue.setIdnummer(minipasTADM.getIdnummer());
+        returnValue.setV_recnum(minipasTADM.getK_recnum());
+
+        returnValue.setC_diag("diag");
+        returnValue.setC_diagtype("x");
+        returnValue.setC_tildiag("tildiag");
+        returnValue.setIndberetningsdato(new Date());
+        return returnValue;
+    }
+
+    @Test
+    public void testCreated() {
+        if (aLog.isDebugEnabled()) {
+            aLog.debug("testCreated: ");
+        }
+        resetDb();
+        // insert ok status
+        setImportFlagOk();
+        MinipasTADM minipasTADM = createRandomTADM();
+
+        insertMinipasTADM(minipasTADM);
+
+        minipasPreprocessor.doManualProcess();
+
+        assertEquals(1, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
+        assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_koder"));
+        assertEquals(1, haibaJdbc.queryForInt("select count(*) from t_adm"));
+    }
+
+    public void setImportFlagOk() {
+        minipasJdbc
+                .update("insert into T_MINIPAS_UGL_STATUS (K_ID, D_STARTDATETIME, D_ENDDATETIME, V_RETURNCODE) VALUES (1, '2014-03-10', '2014-03-11', 1)");
+    }
+
+    public void resetDb() {
+        minipasJdbc.update("delete from T_MINIPAS_UGL_STATUS");
+        minipasJdbc.update("delete from T_DIAG2014");
+        minipasJdbc.update("delete from T_SKSOPR2014");
+        minipasJdbc.update("delete from T_SKSUBE2014");
+        minipasJdbc.update("delete from T_ADM2014");
+        minipasSyncJdbc.update("delete from T_MINIPAS_SYNC");
+        haibaJdbc.update("delete from T_ADM");
+        haibaJdbc.update("delete from T_KODER");
+        haibaJdbc.update("delete from T_LOG_SYNC_HISTORY");
+    }
+
+    private void insertMinipasTADM(MinipasTADM m) {
+        minipasJdbc
+                .update("INSERT INTO T_ADM2014 (K_RECNUM, IDNUMMER, SKEMAOPDAT, SKEMAOPRET, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO) "
+                        + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", m.getK_recnum(), m.getIdnummer(), m.getSkemaopdat(),
+                        m.getSkemaopret(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
+                        m.getD_uddto());
+    }
+
+    public MinipasTADM createRandomTADM() {
+        MinipasTADM returnValue = new MinipasTADM();
+        returnValue.setK_recnum(aKRecnum++);
+        returnValue.setIdnummer(UUID.randomUUID().toString());
+        Date d = new Date();
+        returnValue.setSkemaopdat(d);
+        returnValue.setSkemaopdat(d);
+        returnValue.setC_sgh(C_SGH);
+        returnValue.setC_afd(C_AFD);
+        returnValue.setC_pattype(C_PATTYPE);
+        returnValue.setV_cpr(V_CPR);
+        returnValue.setD_inddto(D_INDDTO);
+        returnValue.setD_uddto(D_UDDTO);
+        return returnValue;
     }
 }
