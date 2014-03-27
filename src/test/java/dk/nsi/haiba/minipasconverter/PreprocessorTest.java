@@ -65,7 +65,8 @@ import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
-@Ignore // not able to run from maven without db2 driver
+// not able to run from maven without db2 driver
+@Ignore
 public class PreprocessorTest {
     private static final Logger aLog = Logger.getLogger(PreprocessorTest.class);
     private static final String C_SGH = "sgh";
@@ -129,6 +130,14 @@ public class PreprocessorTest {
         assertEquals(0, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
         assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_koder"));
         assertEquals(0, haibaJdbc.queryForInt("select count(*) from t_adm"));
+
+        // start and end timestamp are both set?
+        long maxSyncId = haibaJdbc.queryForLong("SELECT max(v_sync_id) FROM T_LOG_SYNC");
+        long okIfOne = haibaJdbc
+                .queryForLong(
+                        "SELECT count(*) FROM T_LOG_SYNC WHERE v_sync_id = ?",
+                        maxSyncId);
+        assertEquals(1, okIfOne);
     }
 
     @Test
@@ -187,7 +196,7 @@ public class PreprocessorTest {
         System.out.println("actual='" + actual + "'");
         assertEquals("hest", actual.trim());
     }
-    
+
     @Test
     public void testCreatedUpdatedDeleted() {
         if (aLog.isDebugEnabled()) {
@@ -196,7 +205,7 @@ public class PreprocessorTest {
         resetDb();
         // insert ok status
         setImportFlagOk();
-        
+
         MinipasTADM minipasTADM1 = createRandomTADM();
         insertMinipasTADM(minipasTADM1);
         insertMinipasTDIAG(createRandomTDIAG(minipasTADM1));
@@ -204,30 +213,31 @@ public class PreprocessorTest {
         MinipasTADM minipasTADM2 = createRandomTADM();
         insertMinipasTADM(minipasTADM2);
         insertMinipasTDIAG(createRandomTDIAG(minipasTADM2));
-        
+
         minipasPreprocessor.doManualProcess();
-        
+
         assertEquals(2, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
         assertEquals(2, haibaJdbc.queryForInt("select count(*) from t_koder"));
         assertEquals(2, haibaJdbc.queryForInt("select count(*) from t_adm"));
-        
+
         // delete 1
         minipasJdbc.update("DELETE FROM T_ADM2014 WHERE IDNUMMER=?", minipasTADM1.getIdnummer());
-        
+
         // update 2, reset skemaopdat, indicating change
-        minipasJdbc.update("UPDATE T_ADM2014 SET SKEMAOPDAT=? WHERE IDNUMMER=?", new Date(), minipasTADM2.getIdnummer());
-        
+        minipasJdbc
+                .update("UPDATE T_ADM2014 SET SKEMAOPDAT=? WHERE IDNUMMER=?", new Date(), minipasTADM2.getIdnummer());
+
         // create 3
         MinipasTADM minipasTADM3 = createRandomTADM();
         insertMinipasTADM(minipasTADM3);
         insertMinipasTDIAG(createRandomTDIAG(minipasTADM3));
-        
+
         // simulate read
         haibaJdbc.update("UPDATE T_ADM SET D_IMPORTDTO=? WHERE V_RECNUM=?", new Date(), minipasTADM1.getIdnummer());
         haibaJdbc.update("UPDATE T_ADM SET D_IMPORTDTO=? WHERE V_RECNUM=?", new Date(), minipasTADM2.getIdnummer());
 
         minipasPreprocessor.doManualProcess();
-        
+
         // also test d_importdto is reset
         assertNull(haibaJdbc.queryForObject("select D_IMPORTDTO from t_adm WHERE V_RECNUM=?", Date.class,
                 minipasTADM2.getIdnummer()));
