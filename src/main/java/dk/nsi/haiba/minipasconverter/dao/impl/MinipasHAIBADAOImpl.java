@@ -67,6 +67,9 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     String tableprefix;
 
     private Map<Integer, Map<String, SyncStruct>> aPendingSyncStructsForYear = new HashMap<Integer, Map<String, SyncStruct>>();
+
+    @Autowired
+    @Qualifier("haibaTransactionManager")
     private PlatformTransactionManager transactionManager;
     private TransactionStatus transactionStatus;
 
@@ -192,15 +195,13 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
         aPendingSyncStructsForYear.clear();
     }
 
+    @Override
     public void setupTransaction() {
         transactionStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
     }
-
-    public void rollback() {
-        transactionManager.rollback(transactionStatus);
-    }
-
-    public void commit() {
+    
+    @Override
+    public void commitTransaction() {
         transactionManager.commit(transactionStatus);
     }
 

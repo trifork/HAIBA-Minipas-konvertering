@@ -177,6 +177,7 @@ public class MinipasPreprocessor {
                 if (aLog.isTraceEnabled()) {
                     aLog.trace("doImport: minipas returned " + minipasTADM.size());
                 }
+                haibaDao.setupTransaction();
                 MinipasSyncStructure syncStructure = haibaDao.syncTest(year, minipasTADM);
                 if (aLog.isTraceEnabled()) {
                     aLog.trace("doImport: tested, got " + syncStructure.getCreated().size() + " created and "
@@ -195,6 +196,7 @@ public class MinipasPreprocessor {
 
                 // now remember that we have processed the changes
                 haibaDao.syncCommit(year, syncStructure);
+                haibaDao.commitTransaction();
                 if (aLog.isTraceEnabled()) {
                     aLog.trace("doImport: committed");
                 }

@@ -36,8 +36,10 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jndi.JndiObjectFactoryBean;
 import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.transaction.PlatformTransactionManager;
 
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
 import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
@@ -82,7 +84,10 @@ public class MinipasConverterConfiguration {
         factory.setJndiName(haibaJNDIName);
         factory.setExpectedType(DataSource.class);
         factory.afterPropertiesSet();
-        return (DataSource) factory.getObject();
+        DataSource dataSource = (DataSource) factory.getObject();
+        // requires manual transaction handling
+        dataSource.getConnection().setAutoCommit(false);
+        return dataSource;
     }
 
     @Bean
@@ -132,5 +137,11 @@ public class MinipasConverterConfiguration {
     @Bean
     public CurrentImportProgress currentImportProgress() {
         return new CurrentImportProgress();
+    }
+    
+    @Bean
+    @Qualifier("haibaTransactionManager")
+    public PlatformTransactionManager haibaTransactionManager(@Qualifier("haibaDataSource") DataSource ds) {
+        return new DataSourceTransactionManager(ds);
     }
 }

@@ -68,4 +68,8 @@ public interface MinipasHAIBADAO {
     public Collection<String> syncGetDeletedIdnummers(int year);
     
     public void reset();
+
+    void commitTransaction();
+
+    void setupTransaction();
 }
