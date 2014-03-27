@@ -30,7 +30,6 @@ import java.sql.Driver;
 
 import javax.sql.DataSource;
 
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
