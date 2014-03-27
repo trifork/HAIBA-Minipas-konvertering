@@ -55,8 +55,8 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.context.support.AnnotationConfigContextLoader;
 
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
-import dk.nsi.haiba.minipasconverter.dao.MinipasSyncDAO;
-import dk.nsi.haiba.minipasconverter.dao.impl.MinipasSyncDAOImpl;
+import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
+import dk.nsi.haiba.minipasconverter.dao.impl.MinipasHAIBADAOImpl;
 import dk.nsi.haiba.minipasconverter.executor.MinipasPreprocessor;
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
@@ -76,6 +76,8 @@ public class PreprocessorTest {
     private static final Date D_INDDTO = new DateTime(2013, 10, 10, 10, 10).toDate();
     private static final Date D_UDDTO = new DateTime(2013, 10, 11, 10, 10).toDate();
 
+    // XXX undone tests: cache overflow with 1 entry, cache overflow with 2 entries, aborted transaction
+    
     @Configuration
     @Import({ TestConfiguration.class })
     static class MyConfiguration {
@@ -89,7 +91,7 @@ public class PreprocessorTest {
     MinipasDAO minipasDAO;
 
     @Autowired
-    MinipasSyncDAO minipasSyncDAO;
+    MinipasHAIBADAO minipasHAIBADAO;
 
     @Autowired
     MinipasPreprocessor minipasPreprocessor;
@@ -116,7 +118,7 @@ public class PreprocessorTest {
     public void init() {
         Logger.getLogger(MinipasPreprocessor.class).setLevel(Level.DEBUG);
         Logger.getLogger(PreprocessorTest.class).setLevel(Level.DEBUG);
-        Logger.getLogger(MinipasSyncDAOImpl.class).setLevel(Level.TRACE);
+        Logger.getLogger(MinipasHAIBADAOImpl.class).setLevel(Level.TRACE);
     }
 
     @Test

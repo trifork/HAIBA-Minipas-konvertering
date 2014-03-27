@@ -41,10 +41,8 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
 import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
-import dk.nsi.haiba.minipasconverter.dao.MinipasSyncDAO;
 import dk.nsi.haiba.minipasconverter.dao.impl.MinipasDAOImpl;
 import dk.nsi.haiba.minipasconverter.dao.impl.MinipasHAIBADAOImpl;
-import dk.nsi.haiba.minipasconverter.dao.impl.MinipasSyncDAOImpl;
 import dk.nsi.haiba.minipasconverter.executor.MinipasPreprocessor;
 import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 import dk.nsi.haiba.minipasconverter.status.ImportStatusRepository;
@@ -58,17 +56,11 @@ public class MinipasConverterConfiguration {
     @Value("${jdbc.haibaJNDIName}")
     private String haibaJNDIName;
 
-    @Value("${jdbc.haibaSyncJNDIName}")
-    private String haibaSyncJNDIName;
-
     @Value("${jdbc.minipasJNDIName}")
     private String minipasJNDIName;
 
     @Value("${jdbc.haiba.dialect:MSSQL}")
     private String haibadialect;
-
-    @Value("${jdbc.haibasync.dialect:MSSQL}")
-    private String haibasyncdialect;
 
     // this is not automatically registered, see https://jira.springsource.org/browse/SPR-8539
     @Bean
@@ -94,15 +86,6 @@ public class MinipasConverterConfiguration {
     }
 
     @Bean
-    public DataSource haibaSyncDataSource() throws Exception {
-        JndiObjectFactoryBean factory = new JndiObjectFactoryBean();
-        factory.setJndiName(haibaSyncJNDIName);
-        factory.setExpectedType(DataSource.class);
-        factory.afterPropertiesSet();
-        return (DataSource) factory.getObject();
-    }
-
-    @Bean
     public DataSource minipasDataSource() throws Exception {
         JndiObjectFactoryBean factory = new JndiObjectFactoryBean();
         factory.setJndiName(minipasJNDIName);
@@ -113,11 +96,6 @@ public class MinipasConverterConfiguration {
 
     @Bean
     public JdbcTemplate haibaJdbcTemplate(@Qualifier("haibaDataSource") DataSource ds) {
-        return new JdbcTemplate(ds);
-    }
-
-    @Bean
-    public JdbcTemplate haibaSyncJdbcTemplate(@Qualifier("haibaSyncDataSource") DataSource ds) {
         return new JdbcTemplate(ds);
     }
 
@@ -149,11 +127,6 @@ public class MinipasConverterConfiguration {
     @Bean
     public MinipasHAIBADAO minipasHAIBADAO() {
         return new MinipasHAIBADAOImpl(haibadialect);
-    }
-
-    @Bean
-    public MinipasSyncDAO minipasSyncDAO() {
-        return new MinipasSyncDAOImpl(haibasyncdialect);
     }
 
     @Bean

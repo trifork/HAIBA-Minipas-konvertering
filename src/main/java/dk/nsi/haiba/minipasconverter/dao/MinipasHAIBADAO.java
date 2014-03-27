@@ -50,4 +50,22 @@ public interface MinipasHAIBADAO {
     void importEnded();
 
     void setDeleted(String idnummer);
+    
+    public void syncCleanupRowsFromTablesOlderThanYear(int year);
+
+    public MinipasSyncStructure syncTest(int year, Collection<MinipasTADM> minipasRows);
+
+    public void syncCommit(int year, MinipasSyncStructure syncStructure);
+
+    public void syncCommitDeleted(int year, Collection<String> deleted);
+
+    public interface MinipasSyncStructure {
+        public Collection<MinipasTADM> getCreated();
+
+        public Collection<MinipasTADM> getUpdated();
+    }
+
+    public Collection<String> syncGetDeletedIdnummers(int year);
+    
+    public void reset();
 }

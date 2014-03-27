@@ -40,8 +40,8 @@ import org.springframework.jdbc.datasource.SimpleDriverDataSource;
 import org.springframework.transaction.annotation.EnableTransactionManagement;
 
 import dk.nsi.haiba.minipasconverter.config.MinipasConverterConfiguration;
-import dk.nsi.haiba.minipasconverter.dao.MinipasSyncDAO;
-import dk.nsi.haiba.minipasconverter.dao.impl.MinipasSyncDAOImpl;
+import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
+import dk.nsi.haiba.minipasconverter.dao.impl.MinipasHAIBADAOImpl;
 
 @Configuration
 @EnableTransactionManagement
@@ -99,7 +99,7 @@ public class TestConfiguration extends MinipasConverterConfiguration {
     }
     
     @Bean
-    public MinipasSyncDAO minipasSyncDAO() {
-        return new MinipasSyncDAOImpl(haibadialect);
+    public MinipasHAIBADAO minipasHAIBADAO() {
+        return new MinipasHAIBADAOImpl(haibadialect);
     }
 }
