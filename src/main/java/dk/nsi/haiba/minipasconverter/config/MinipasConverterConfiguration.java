@@ -37,6 +37,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jndi.JndiObjectFactoryBean;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
 import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
@@ -52,6 +53,7 @@ import dk.nsi.haiba.minipasconverter.status.TimeSource;
 import dk.nsi.haiba.minipasconverter.status.TimeSourceRealTimeImpl;
 
 @Configuration
+@EnableScheduling
 public class MinipasConverterConfiguration {
     @Value("${jdbc.haibaJNDIName}")
     private String haibaJNDIName;
