@@ -375,6 +375,4 @@ public class PreprocessorTest {
         returnValue.setD_uddto(D_UDDTO);
         return returnValue;
     }
-
-    // XXX test a combination of create/update/delete
 }
