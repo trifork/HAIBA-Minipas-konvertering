@@ -216,6 +216,7 @@ public class MinipasPreprocessor {
             aLog.info(status);
             currentImportProgress.addStatusLine(status);
         }
+        haibaDao.importEnded();
     }
 
     private boolean minipasOk(long lastReturnCodeElseNegativeOne) {
