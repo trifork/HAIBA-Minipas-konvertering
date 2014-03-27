@@ -148,7 +148,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     public void importEnded() {
         try {
             Long newestOpenId = getNewestSyncId();
-            jdbc.update("UPDATE " + tableprefix + "T_LOG_SYNC SET END_TIME=?, WHERE V_SYNC_ID=?", new Date(),
+            jdbc.update("UPDATE " + tableprefix + "T_LOG_SYNC SET END_TIME=? WHERE V_SYNC_ID=?", new Date(),
                     newestOpenId);
         } catch (EmptyResultDataAccessException e) {
             aLog.debug("importEnded: it seems we do not have any open statuses, let's not update");
