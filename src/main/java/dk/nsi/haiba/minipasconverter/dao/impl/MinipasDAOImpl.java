@@ -73,6 +73,11 @@ public class MinipasDAOImpl implements MinipasDAO {
     Map<Integer, Collection<MinipasTDIAG>> aRecnumToDIAGCollectionMap;
     String aCurrentDIAGTableYear;
 
+    // has to be large enough to include all diagnoses etc. for a single recnum, or they will be chopped up in the cache
+    // and the import fails. largest amount seen is ube at a count of 644 in 2011
+    @Value("${minipas.minipasdaocachesize:5000}")
+    int cacheSize;
+
     @Override
     public void reset() {
         aRecnumToSKSUBECollectionMap = null;
@@ -166,11 +171,11 @@ public class MinipasDAOImpl implements MinipasDAO {
             aCurrentDIAGTableYear = year;
             aRecnumToDIAGCollectionMap = null;
         }
-        
+
         if (doBuildCache(aRecnumToDIAGCollectionMap, recnum)) {
             if (aLog.isTraceEnabled()) {
                 aLog.trace("getMinipasDIAG: rebuilding cache");
-            } 
+            }
             // start or cache just got obsolete, refill it
             RowMapper<MinipasTDIAG> rowMapper = new MyMinipasTDIAGRowMapper();
             String tableName = "T_DIAG" + year;
@@ -205,7 +210,7 @@ public class MinipasDAOImpl implements MinipasDAO {
         if (doBuildCache(aRecnumToSKSUBECollectionMap, recnum)) {
             if (aLog.isTraceEnabled()) {
                 aLog.trace("getMinipasSKSUBE: rebuilding cache");
-            } 
+            }
             // start or cache just got obsolete, refill it
             RowMapper<MinipasTSKSUBE_OPR> rowMapper = new MyMinipasTSKSUBE_OPRRowMapper("und");
             String tableName = "T_SKSUBE" + year;
@@ -240,8 +245,8 @@ public class MinipasDAOImpl implements MinipasDAO {
         if (doBuildCache(aRecnumToSKSOPRCollectionMap, recnum)) {
             if (aLog.isTraceEnabled()) {
                 aLog.trace("getMinipasSKSOPR: rebuilding cache");
-            } 
-            
+            }
+
             // start or cache just got obsolete, refill it
             RowMapper<MinipasTSKSUBE_OPR> rowMapper = new MyMinipasTSKSUBE_OPRRowMapper("opr");
             String tableName = "T_SKSOPR" + year;
@@ -293,9 +298,8 @@ public class MinipasDAOImpl implements MinipasDAO {
     public <T extends MinipasRowWithRecnum> void buildCache(Map<Integer, Collection<T>> destination,
             RowMapper<T> rowMapper, String tableName, int currentRecnum) {
         Monitor mon = MonitorFactory.start("MinipasDAOImpl.buildCache");
-        int batchSize = 1000;
         List<T> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
-                + " WHERE V_RECNUM >= ? ORDER BY V_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY", rowMapper,
+                + " WHERE V_RECNUM >= ? ORDER BY V_RECNUM FETCH FIRST " + cacheSize + " ROWS ONLY", rowMapper,
                 currentRecnum);
 
         // be sure to tell that we have already been here for this recnum, even if there is no data in the loop
@@ -309,11 +313,18 @@ public class MinipasDAOImpl implements MinipasDAO {
             }
             collection.add(t);
         }
-        
-        // now drop the collection with the largest recnum as this may have been cut short (by the fetch limit)
-        Integer max_recnum = Collections.max(destination.keySet());
-        destination.remove(max_recnum);
-        
+
+        if (query.size() == cacheSize) {
+            if (destination.size() == 1) {
+                // fatal error, we can never retrieve all data for this recnum
+                throw new RuntimeException("cache size of " + cacheSize + " is not enough to contain data for recnum "
+                        + currentRecnum + " from table " + tableName);
+            }
+            // drop the collection with the largest recnum as this may have been cut short (by the fetch limit)
+            Integer max_recnum = Collections.max(destination.keySet());
+            destination.remove(max_recnum);
+        }
+
         mon.stop();
     }
 
