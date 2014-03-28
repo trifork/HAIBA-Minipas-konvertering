@@ -140,6 +140,11 @@ public class MinipasConverterConfiguration {
     }
     
     @Bean
+    public ImportStatusRepository statusRepo() {
+        return new ImportStatusRepositoryJdbcImpl(haibadialect);
+    }
+    
+    @Bean
     @Qualifier("haibaTransactionManager")
     public PlatformTransactionManager haibaTransactionManager(@Qualifier("haibaDataSource") DataSource ds) {
         return new DataSourceTransactionManager(ds);

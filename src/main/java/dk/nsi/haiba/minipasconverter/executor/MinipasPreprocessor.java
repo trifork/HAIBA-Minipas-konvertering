@@ -47,6 +47,7 @@ import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
 import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
+import dk.nsi.haiba.minipasconverter.status.ImportStatusRepository;
 
 public class MinipasPreprocessor {
     private static Logger aLog = Logger.getLogger(MinipasPreprocessor.class);
@@ -70,6 +71,9 @@ public class MinipasPreprocessor {
     MinipasHAIBADAO haibaDao;
 
     @Autowired
+    ImportStatusRepository statusRepo;
+
+    @Autowired
     CurrentImportProgress currentImportProgress;
 
     private boolean manualOverride;
@@ -88,6 +92,7 @@ public class MinipasPreprocessor {
     public synchronized void doProcess(boolean manual) {
         aLog.info("Started processing, manual=" + manual);
         if (!running) {
+            statusRepo.importStartedAt(new DateTime());
             running = true;
             currentImportProgress.reset();
             try {
@@ -101,9 +106,11 @@ public class MinipasPreprocessor {
                         currentImportProgress.addStatusLine(status);
                         aLog.warn(status);
                         doRetry = false;
+                        statusRepo.importEndedWithFailure(new DateTime(), status);
                     } else if (minipasOk(lastReturnCodeElseNegativeOne)) {
                         doImport();
                         doRetry = false;
+                        statusRepo.importEndedWithSuccess(new DateTime());
                     } else {
                         retries--;
                         if (retries >= 0) {
@@ -119,6 +126,7 @@ public class MinipasPreprocessor {
                         } else {
                             String status = "Aborting process, MINIPAS was not ready";
                             currentImportProgress.addStatusLine(status);
+                            statusRepo.importEndedWithFailure(new DateTime(), status);
                             aLog.warn(status);
                             doRetry = false;
                         }
@@ -128,7 +136,9 @@ public class MinipasPreprocessor {
                 currentImportProgress.addStatusLine("done");
             } catch (RuntimeException t) {
                 currentImportProgress.addStatusLine("Aborted due to error:");
-                currentImportProgress.addStatusLine(getStackTrace(t));
+                String stackTrace = getStackTrace(t);
+                currentImportProgress.addStatusLine(stackTrace);
+                statusRepo.importEndedWithFailure(new DateTime(), "Aborted due to error:" + stackTrace);
                 throw t;
             } finally {
                 aLog.info("Stopped processing, manual=" + manual);

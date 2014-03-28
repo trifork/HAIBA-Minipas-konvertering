@@ -142,5 +142,4 @@ public class StatusReporter {
 			return body + "\n" + latestStatus.toString();
 		}
 	}
-	
 }
