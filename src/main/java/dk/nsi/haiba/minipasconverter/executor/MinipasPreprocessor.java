@@ -61,7 +61,7 @@ public class MinipasPreprocessor {
     @Value("${minipas.waitperiodminutes:30}")
     int waitPeriodMinutes;
 
-    @Value("${minipas.yearstotal:5}")
+    @Value("${minipas.yearstotal:6}")
     int yearstotal;
 
     @Autowired
