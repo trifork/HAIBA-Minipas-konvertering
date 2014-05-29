@@ -88,7 +88,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                     "INSERT INTO "
                             + tableprefix
                             + "T_KODER (V_RECNUM, C_KODE, C_TILKODE, C_KODEART, D_PDTO, C_PSGH, C_PAFD, V_TYPE) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    m.getIdnummer(), m.getC_opr(), m.getC_tilopr(), m.getC_oprart(), m.getIndberetningsdato(),
+                    m.getIdnummer(), m.getC_opr(), m.getC_tilopr(), m.getC_oprart(), m.getD_odto(),
                     minipasTADM.getC_sgh(), minipasTADM.getC_afd(), m.getType());
         }
         mon.stop();
@@ -111,8 +111,8 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
             jdbc.update(
                     "INSERT INTO "
                             + tableprefix
-                            + "T_KODER (V_RECNUM, C_KODE, C_TILKODE, C_KODEART, D_PDTO, C_PSGH, C_PAFD, V_TYPE) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                    m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), m.getC_diagtype(), m.getIndberetningsdato(),
+                            + "T_KODER (V_RECNUM, C_KODE, C_TILKODE, C_KODEART, C_PSGH, C_PAFD, V_TYPE) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), m.getC_diagtype(),
                     minipasTADM.getC_sgh(), minipasTADM.getC_afd(), "dia");
         }
         mon.stop();
