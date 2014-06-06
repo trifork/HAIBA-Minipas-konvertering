@@ -112,8 +112,8 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                     "INSERT INTO "
                             + tableprefix
                             + "T_KODER (V_RECNUM, C_KODE, C_TILKODE, C_KODEART, C_PSGH, C_PAFD, V_TYPE) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                    m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), m.getC_diagtype(),
-                    minipasTADM.getC_sgh(), minipasTADM.getC_afd(), "dia");
+                    m.getIdnummer(), m.getC_diag(), m.getC_tildiag(), m.getC_diagtype(), minipasTADM.getC_sgh(),
+                    minipasTADM.getC_afd(), "dia");
         }
         mon.stop();
     }
@@ -199,7 +199,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     public void setupTransaction() {
         transactionStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
     }
-    
+
     @Override
     public void commitTransaction() {
         transactionManager.commit(transactionStatus);
@@ -361,5 +361,14 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
         }
         mon.stop();
         return returnValue;
+    }
+
+    @Override
+    public void reinsertAdm(MinipasTADM m) {
+        clearAdm(m.getIdnummer());
+        jdbc.update("INSERT INTO " + tableprefix
+                + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
+                m.getD_uddto());
     }
 }

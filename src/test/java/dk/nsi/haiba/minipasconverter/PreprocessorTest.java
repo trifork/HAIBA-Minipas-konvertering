@@ -66,7 +66,7 @@ import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
 // not able to run from maven without db2 driver
-@Ignore
+// @Ignore
 public class PreprocessorTest {
     private static final Logger aLog = Logger.getLogger(PreprocessorTest.class);
     private static final String C_SGH = "sgh";
@@ -77,7 +77,7 @@ public class PreprocessorTest {
     private static final Date D_UDDTO = new DateTime(2013, 10, 11, 10, 10).toDate();
 
     // XXX undone tests: cache overflow with 1 entry, cache overflow with 2 entries, aborted transaction
-    
+
     @Configuration
     @Import({ TestConfiguration.class })
     static class MyConfiguration {
@@ -135,10 +135,7 @@ public class PreprocessorTest {
 
         // start and end timestamp are both set?
         long maxSyncId = haibaJdbc.queryForLong("SELECT max(v_sync_id) FROM T_LOG_SYNC");
-        long okIfOne = haibaJdbc
-                .queryForLong(
-                        "SELECT count(*) FROM T_LOG_SYNC WHERE v_sync_id = ?",
-                        maxSyncId);
+        long okIfOne = haibaJdbc.queryForLong("SELECT count(*) FROM T_LOG_SYNC WHERE v_sync_id = ?", maxSyncId);
         assertEquals(1, okIfOne);
     }
 
@@ -147,6 +144,7 @@ public class PreprocessorTest {
         if (aLog.isDebugEnabled()) {
             aLog.debug("testUpdated: ");
         }
+        Date nyuddto = new DateTime().withMillisOfDay(0).toDate();
         resetDb();
         // insert ok status
         setImportFlagOk();
@@ -181,7 +179,8 @@ public class PreprocessorTest {
         insertMinipasTDIAG(createRandomTDIAG(minipasTADM));
 
         // reset skemaopdat, indicating change
-        minipasJdbc.update("UPDATE T_ADM2014 SET SKEMAOPDAT=? WHERE IDNUMMER=?", new Date(), minipasTADM.getIdnummer());
+        minipasJdbc.update("UPDATE T_ADM2014 SET SKEMAOPDAT=?,D_UDDTO=? WHERE IDNUMMER=?", new Date(), nyuddto,
+                minipasTADM.getIdnummer());
         minipasJdbc.update("UPDATE T_DIAG2014 SET C_DIAG='hest' WHERE IDNUMMER=? AND C_TILDIAG=?",
                 minipasTADM.getIdnummer(), "123");
 
@@ -190,6 +189,10 @@ public class PreprocessorTest {
         // also test d_importdto is reset
         assertNull(haibaJdbc.queryForObject("select D_IMPORTDTO from t_adm WHERE V_RECNUM=?", Date.class,
                 minipasTADM.getIdnummer()));
+        Date tadmUddto = haibaJdbc.queryForObject("select D_UDDTO from t_adm WHERE V_RECNUM=?", Date.class,
+                minipasTADM.getIdnummer());
+        assertEquals("t_adm, uddto ikke opdateret: " + tadmUddto + " vs. " + nyuddto, new Date(tadmUddto.getTime()),
+                new Date(nyuddto.getTime()));
         assertEquals(1, minipasSyncJdbc.queryForInt("select count(*) from t_minipas_sync"));
         assertEquals(5, haibaJdbc.queryForInt("select count(*) from t_koder"));
         assertEquals(1, haibaJdbc.queryForInt("select count(*) from t_adm"));
@@ -377,7 +380,7 @@ public class PreprocessorTest {
         returnValue.setK_recnum(aKRecnum++);
         returnValue.setIdnummer(UUID.randomUUID().toString());
         Date d = new Date();
-        returnValue.setSkemaopdat(d);
+        returnValue.setSkemaopret(d);
         returnValue.setSkemaopdat(d);
         returnValue.setC_sgh(C_SGH);
         returnValue.setC_afd(C_AFD);

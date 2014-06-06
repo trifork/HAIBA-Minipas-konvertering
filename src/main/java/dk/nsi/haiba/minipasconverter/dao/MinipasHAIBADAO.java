@@ -72,4 +72,6 @@ public interface MinipasHAIBADAO {
     void commitTransaction();
 
     void setupTransaction();
+
+    void reinsertAdm(MinipasTADM minipasTADM);
 }

@@ -248,6 +248,7 @@ public class MinipasPreprocessor {
         Monitor mon = MonitorFactory.start("MinipasPreprocessor.handleUpdated()");
         haibaDao.resetAdmD_IMPORTDTO(updated);
         for (MinipasTADM minipasTADM : updated) {
+            haibaDao.reinsertAdm(minipasTADM);
             haibaDao.clearKoder(minipasTADM.getIdnummer());
             Collection<MinipasTSKSUBE_OPR> ubeoprs = minipasDao.getMinipasSKSUBE_OPR(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromSksUbeOpr(minipasTADM, ubeoprs);
