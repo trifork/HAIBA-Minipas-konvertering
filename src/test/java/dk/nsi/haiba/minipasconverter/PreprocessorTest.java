@@ -66,7 +66,7 @@ import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 @RunWith(SpringJUnit4ClassRunner.class)
 @ContextConfiguration(loader = AnnotationConfigContextLoader.class)
 // not able to run from maven without db2 driver
-// @Ignore
+@Ignore
 public class PreprocessorTest {
     private static final Logger aLog = Logger.getLogger(PreprocessorTest.class);
     private static final String C_SGH = "sgh";
