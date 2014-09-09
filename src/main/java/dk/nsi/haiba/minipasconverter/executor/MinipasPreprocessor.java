@@ -136,6 +136,7 @@ public class MinipasPreprocessor {
                 currentImportProgress.addStatusLine("done");
             } catch (RuntimeException t) {
                 currentImportProgress.addStatusLine("Aborted due to error:");
+                aLog.error("Aborted due to error:", t);
                 String stackTrace = getStackTrace(t);
                 currentImportProgress.addStatusLine(stackTrace);
                 statusRepo.importEndedWithFailure(new DateTime(), "Aborted due to error:" + stackTrace);
