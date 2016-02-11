@@ -24,31 +24,46 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package dk.nsi.haiba.minipasconverter.dao;
+package dk.nsi.haiba.minipasconverter.model;
 
-import java.util.Collection;
+import java.util.Date;
 
-import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
-import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
-import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
-import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
+public class MinipasTBES implements MinipasRowWithRecnum {
+    private int v_recnum; // ud efter kopi, nyt nummer hver nat
+    private String idnummer; // 38 guid
+    private Date d_ambdto;
+    private Date indberetningsdato;
 
-public interface MinipasDAO {
-    /**
-     * @param year full year with century, e.g. 2014
-     * @param fromKRecnum recnum to import from, not inclusive
-     * @param batchSize number of results
-     * @return
-     */
-    public Collection<MinipasTADM> getMinipasTADM(String year, long fromKRecnum, int batchSize);
+    @Override
+    public int getV_recnum() {
+        return v_recnum;
+    }
 
-    public Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE_OPR(String year, int recnum);
+    public void setV_recnum(int v_recnum) {
+        this.v_recnum = v_recnum;
+    }
 
-    public Collection<MinipasTDIAG> getMinipasDIAG(String year, int recnum);
+    public String getIdnummer() {
+        return idnummer;
+    }
 
-    public Collection<MinipasTBES> getMinipasBES(String year, int recnum);
+    public void setIdnummer(String idnummer) {
+        this.idnummer = idnummer;
+    }
 
-    public long lastReturnCodeElseNegativeOne();
+    public Date getD_ambdto() {
+        return d_ambdto;
+    }
 
-    void reset();
+    public void setD_ambdto(Date d_ambdto) {
+        this.d_ambdto = d_ambdto;
+    }
+
+    public Date getIndberetningsdato() {
+        return indberetningsdato;
+    }
+
+    public void setIndberetningsdato(Date indberetningsdato) {
+        this.indberetningsdato = indberetningsdato;
+    }
 }

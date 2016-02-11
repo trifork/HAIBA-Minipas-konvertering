@@ -31,11 +31,13 @@ import java.io.StringWriter;
 import java.util.Collection;
 import java.util.Date;
 
+import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
 import org.apache.log4j.Logger;
 import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
 
 import com.jamonapi.Monitor;
 import com.jamonapi.MonitorFactory;
@@ -49,6 +51,7 @@ import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 import dk.nsi.haiba.minipasconverter.status.CurrentImportProgress;
 import dk.nsi.haiba.minipasconverter.status.ImportStatusRepository;
 
+@Service
 public class MinipasPreprocessor {
     private static Logger aLog = Logger.getLogger(MinipasPreprocessor.class);
 
@@ -241,6 +244,7 @@ public class MinipasPreprocessor {
         for (String idnummer : deletedIdnummers) {
             haibaDao.clearAdm(idnummer);
             haibaDao.clearKoder(idnummer);
+            haibaDao.clearBes(idnummer);
             haibaDao.setDeleted(idnummer);
         }
     }
@@ -250,11 +254,16 @@ public class MinipasPreprocessor {
         haibaDao.resetAdmD_IMPORTDTO(updated);
         for (MinipasTADM minipasTADM : updated) {
             haibaDao.reinsertAdm(minipasTADM);
+
             haibaDao.clearKoder(minipasTADM.getIdnummer());
             Collection<MinipasTSKSUBE_OPR> ubeoprs = minipasDao.getMinipasSKSUBE_OPR(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromSksUbeOpr(minipasTADM, ubeoprs);
             Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromDiag(minipasTADM, diags);
+
+            haibaDao.clearBes(minipasTADM.getIdnummer());
+            Collection<MinipasTBES> bes = minipasDao.getMinipasBES(year, minipasTADM.getK_recnum());
+            haibaDao.createBesFromBes(minipasTADM, bes);
         }
         mon.stop();
     }
@@ -267,6 +276,8 @@ public class MinipasPreprocessor {
             haibaDao.createKoderFromSksUbeOpr(minipasTADM, ubeoprs);
             Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromDiag(minipasTADM, diags);
+            Collection<MinipasTBES> bes = minipasDao.getMinipasBES(year, minipasTADM.getK_recnum());
+            haibaDao.createBesFromBes(minipasTADM, bes);
         }
         mon.stop();
     }

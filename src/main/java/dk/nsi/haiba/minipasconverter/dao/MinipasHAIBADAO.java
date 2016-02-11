@@ -29,6 +29,7 @@ package dk.nsi.haiba.minipasconverter.dao;
 import java.util.Collection;
 
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
+import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
 import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
 import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 
@@ -37,7 +38,11 @@ public interface MinipasHAIBADAO {
 
     void clearKoder(String idnummer);
 
+    void clearBes(String idnummer);
+
     void createKoderFromDiag(MinipasTADM minipasTADM, Collection<MinipasTDIAG> diags);
+
+    void createBesFromBes(MinipasTADM minipasTADM, Collection<MinipasTBES> bes);
 
     void createAdm(Collection<MinipasTADM> minipasTADMs);
 

@@ -36,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import dk.nsi.haiba.minipasconverter.model.*;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -43,17 +44,15 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.stereotype.Repository;
 
 import com.jamonapi.Monitor;
 import com.jamonapi.MonitorFactory;
 
 import dk.nsi.haiba.minipasconverter.dao.DAOException;
 import dk.nsi.haiba.minipasconverter.dao.MinipasDAO;
-import dk.nsi.haiba.minipasconverter.model.MinipasRowWithRecnum;
-import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
-import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
-import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 
+@Repository
 public class MinipasDAOImpl implements MinipasDAO {
     private static final Logger aLog = Logger.getLogger(MinipasDAOImpl.class);
     @Autowired
@@ -72,6 +71,8 @@ public class MinipasDAOImpl implements MinipasDAO {
     String aCurrentSKSOPRTableYear;
     Map<Integer, Collection<MinipasTDIAG>> aRecnumToDIAGCollectionMap;
     String aCurrentDIAGTableYear;
+    Map<Integer, Collection<MinipasTBES>> aRecnumToBESCollectionMap;
+    String aCurrentBESTableYear;
 
     // has to be large enough to include all diagnoses etc. for a single recnum, or they will be chopped up in the cache
     // and the import fails. largest amount seen is ube at a count of 644 in 2011
@@ -83,6 +84,7 @@ public class MinipasDAOImpl implements MinipasDAO {
         aRecnumToSKSUBECollectionMap = null;
         aRecnumToSKSOPRCollectionMap = null;
         aRecnumToDIAGCollectionMap = null;
+        aRecnumToBESCollectionMap = null;
     }
 
     @Override
@@ -91,7 +93,7 @@ public class MinipasDAOImpl implements MinipasDAO {
         String tableName = "T_ADM" + year;
         // maybe this works - needs to find out if order by executes on resultset or before (before is the intend)
         List<MinipasTADM> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
-                + " WHERE K_RECNUM > ? ORDER BY K_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY",
+                        + " WHERE K_RECNUM > ? ORDER BY K_RECNUM FETCH FIRST " + batchSize + " ROWS ONLY",
                 new RowMapper<MinipasTADM>() {
                     @Override
                     public MinipasTADM mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -199,6 +201,42 @@ public class MinipasDAOImpl implements MinipasDAO {
         return collection;
     }
 
+    @Override
+    public Collection<MinipasTBES> getMinipasBES(String year, int recnum) {
+        Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasBES");
+        if (!year.equals(aCurrentBESTableYear)) {
+            // new cache
+            aCurrentBESTableYear = year;
+            aRecnumToBESCollectionMap = null;
+        }
+
+        if (doBuildCache(aRecnumToBESCollectionMap, recnum)) {
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("getMinipasBES: rebuilding cache");
+            }
+            // start or cache just got obsolete, refill it
+            RowMapper<MinipasTBES> rowMapper = new MyMinipasTBESRowMapper();
+            String tableName = "T_BES" + year;
+
+            // evict
+            aRecnumToBESCollectionMap = new HashMap<Integer, Collection<MinipasTBES>>();
+
+            // start from the requested recnum, assuming to be asked in a recnum order
+            buildCache(aRecnumToBESCollectionMap, rowMapper, tableName, recnum);
+        }
+
+        // most just goes here
+        Collection<MinipasTBES> collection = aRecnumToBESCollectionMap.get(recnum);
+        if (collection == null) {
+            collection = new ArrayList<MinipasTBES>();
+        }
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("MinipasTBES: " + (collection.isEmpty() ? "none" : collection.size()) + " for " + recnum);
+        }
+        mon.stop();
+        return collection;
+    }
+
     private Collection<MinipasTSKSUBE_OPR> getMinipasSKSUBE(String year, int recnum) {
         Monitor mon = MonitorFactory.start("MinipasDAOImpl.getMinipasSKSUBE");
         if (!year.equals(aCurrentSKSUBETableYear)) {
@@ -296,10 +334,10 @@ public class MinipasDAOImpl implements MinipasDAO {
     // All this assumes that we are asked in an recnum ordered way. if lowest recnums are here first, then we request
     // from this recnum and forward a batch size. when this batch is done, we get a new batch and so on
     public <T extends MinipasRowWithRecnum> void buildCache(Map<Integer, Collection<T>> destination,
-            RowMapper<T> rowMapper, String tableName, int currentRecnum) {
+                                                            RowMapper<T> rowMapper, String tableName, int currentRecnum) {
         Monitor mon = MonitorFactory.start("MinipasDAOImpl.buildCache");
         List<T> query = jdbc.query("SELECT * FROM " + minipasPrefix + tableName
-                + " WHERE V_RECNUM >= ? ORDER BY V_RECNUM FETCH FIRST " + cacheSize + " ROWS ONLY", rowMapper,
+                        + " WHERE V_RECNUM >= ? ORDER BY V_RECNUM FETCH FIRST " + cacheSize + " ROWS ONLY", rowMapper,
                 currentRecnum);
 
         // be sure to tell that we have already been here for this recnum, even if there is no data in the loop
@@ -359,6 +397,18 @@ public class MinipasDAOImpl implements MinipasDAO {
             returnValue.setC_diag(rs.getString("C_DIAG"));
             returnValue.setC_diagtype(rs.getString("C_DIAGTYPE"));
             returnValue.setC_tildiag(rs.getString("C_TILDIAG"));
+            returnValue.setIdnummer(rs.getString("IDNUMMER"));
+            returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
+            returnValue.setV_recnum(rs.getInt("V_RECNUM"));
+            return returnValue;
+        }
+    }
+
+    private final class MyMinipasTBESRowMapper implements RowMapper<MinipasTBES> {
+        @Override
+        public MinipasTBES mapRow(ResultSet rs, int rowNum) throws SQLException {
+            MinipasTBES returnValue = new MinipasTBES();
+            returnValue.setD_ambdto(rs.getDate("D_AMBDTO"));
             returnValue.setIdnummer(rs.getString("IDNUMMER"));
             returnValue.setIndberetningsdato(rs.getTimestamp("INDBERETNINGSDATO"));
             returnValue.setV_recnum(rs.getInt("V_RECNUM"));

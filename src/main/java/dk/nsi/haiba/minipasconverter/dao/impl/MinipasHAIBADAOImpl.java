@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
 import org.apache.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -105,6 +106,16 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     }
 
     @Override
+    public void clearBes(String idnummer) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.clearBes");
+        int update = jdbc.update("DELETE FROM " + tableprefix + "T_BES WHERE V_RECNUM=?", idnummer);
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("clearBes: number of rows affected " + update + " for idnummer=" + idnummer);
+        }
+        mon.stop();
+    }
+
+    @Override
     public void createKoderFromDiag(MinipasTADM minipasTADM, Collection<MinipasTDIAG> diags) {
         Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createKoderFromDiag");
         for (MinipasTDIAG m : diags) {
@@ -119,15 +130,29 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     }
 
     @Override
+    public void createBesFromBes(MinipasTADM minipasTADM, Collection<MinipasTBES> bes) {
+        Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createBesFromBes");
+        for (MinipasTBES be : bes) {
+            jdbc.update(
+                    "INSERT INTO "
+                            + tableprefix
+                            + "T_BES (V_RECNUM, D_AMBDTO, INDBERETNINGSDATO) VALUES (?, ?, ?)",
+                    be.getIdnummer(), be.getD_ambdto(), be.getIndberetningsdato());
+        }
+        mon.stop();
+    }
+
+    @Override
     public void createAdm(Collection<MinipasTADM> minipasTADMs) {
         Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createAdm");
+        Date importDto = new Date();
         for (MinipasTADM m : minipasTADMs) {
             jdbc.update(
                     "INSERT INTO "
                             + tableprefix
-                            + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                            + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO, C_INDM, D_IMPORTDTO, V_STATUS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
-                    m.getD_uddto());
+                    m.getD_uddto(), m.getC_indm(), importDto, "a");
         }
         mon.stop();
     }
@@ -183,7 +208,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
         try {
             Long newestOpenId = getNewestSyncId();
             jdbc.update("INSERT INTO " + tableprefix
-                    + "T_LOG_SYNC_HISTORY (V_SYNC_ID, V_RECNUM, C_ACTION_TYPE) VALUES (?, ?, 'DELETE')", newestOpenId,
+                            + "T_LOG_SYNC_HISTORY (V_SYNC_ID, V_RECNUM, C_ACTION_TYPE) VALUES (?, ?, 'DELETE')", newestOpenId,
                     idnummer);
         } catch (EmptyResultDataAccessException e) {
             aLog.debug("setDeleted: it seems we do not have any open statuses, let's not update");
@@ -303,7 +328,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
             Date skemaopdat = minipasTADM.getSkemaopdat() == null ? minipasTADM.getSkemaopret() : minipasTADM
                     .getSkemaopdat();
             jdbc.update("INSERT INTO " + tableprefix
-                    + "T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT_MS, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
+                            + "T_MINIPAS_SYNC (IDNUMMER, SKEMAOPDAT_MS, SOURCE_TABLE_NAME) VALUES (?, ?, ?)",
                     minipasTADM.getIdnummer(), skemaopdat.getTime(), "T_ADM" + year);
         }
         for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
@@ -366,9 +391,10 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     @Override
     public void reinsertAdm(MinipasTADM m) {
         clearAdm(m.getIdnummer());
+        Date importDto = new Date();
         jdbc.update("INSERT INTO " + tableprefix
-                + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO, C_INDM, D_IMPORTDTO, V_STATUS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
-                m.getD_uddto());
+                m.getD_uddto(), m.getC_indm(), importDto, "m");
     }
 }
