@@ -27,6 +27,7 @@
 package dk.nsi.haiba.minipasconverter.dao;
 
 import java.util.Collection;
+import java.util.List;
 
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
@@ -63,6 +64,11 @@ public interface MinipasHAIBADAO {
     public void syncCommit(int year, MinipasSyncStructure syncStructure);
 
     public void syncCommitDeleted(int year, Collection<String> deleted);
+
+    List<MinipasTADM> getTADMFromIdnummer(String sYear, String cpr, int batchSize);
+
+    // ONLY used for importing t_bes and c_indm for existing data - dont use after that
+    void insertUpdateT_BesAndC_Indm(List<MinipasTBES> minipasTBESList, List<MinipasTADM> minipasTADMList);
 
     public interface MinipasSyncStructure {
         public Collection<MinipasTADM> getCreated();

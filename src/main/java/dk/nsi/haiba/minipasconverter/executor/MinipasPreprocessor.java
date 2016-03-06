@@ -30,6 +30,7 @@ import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Collection;
 import java.util.Date;
+import java.util.List;
 
 import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
 import org.apache.log4j.Logger;
@@ -89,6 +90,15 @@ public class MinipasPreprocessor {
             doProcess(false);
         } else {
             aLog.debug("Importer must be started manually");
+        }
+    }
+
+    public synchronized void doSpecialT_BesAndC_indm_Process() {
+        if (!running) {
+            running = true;
+            doT_BesAndC_Indm_Import();
+        } else {
+            aLog.warn("Importer already running (doSpecialT_BesAndC_indm_Process)");
         }
     }
 
@@ -232,6 +242,68 @@ public class MinipasPreprocessor {
         haibaDao.importEnded();
     }
 
+    // ONLY use for updating existing rows in t_adm with c_indm and t_bes - don't use after this
+    public void doT_BesAndC_Indm_Import() {
+        // cleanup - will only cleanup the sync db, not the data already converted and imported
+        int currentyear = getYear();
+        int firstYear = currentyear - yearstotal + 1;
+        currentImportProgress.reset();
+        currentImportProgress.addStatusLine("doing doT_BesAndC_Indm_Import");
+        currentImportProgress.addStatusLine("dots are batches of size " + batchSize);
+
+        // traverse all years, sort already registered t_adm by idnummer, then get the c_indm and t_bes from the minipas
+        // tables and update/insert them into haiba tables
+        for (int year = firstYear; year <= currentyear; year++) {
+            int count = 0;
+            int besCount = 0;
+            int admCount = 0;
+            String idnummer = "";
+            String sYear = "" + year;
+            currentImportProgress.addStatusLine("processing year " + sYear);
+            if (aLog.isDebugEnabled()) {
+                aLog.debug("doImport: processing year " + sYear);
+            }
+            List<MinipasTADM> minipasTADMFromHaiba = null;
+            while (minipasTADMFromHaiba == null || !minipasTADMFromHaiba.isEmpty()) {
+                currentImportProgress.addProgressDot();
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: from idnummer=" + idnummer + ", batchSize=" + batchSize);
+                }
+                // get some TADM rows, sorted by their idnummers
+                minipasTADMFromHaiba = haibaDao.getTADMFromIdnummer(sYear, idnummer, batchSize);
+                count += minipasTADMFromHaiba.size();
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: minipas returned " + minipasTADMFromHaiba.size());
+                }
+                // then get the corresponding tbes and tadm, this time with c_indm
+                List<MinipasTBES> minipasTBESList = minipasDao.getMinipasTBESForIdnummer(year, minipasTADMFromHaiba);
+                List<MinipasTADM> minipasTADMList = minipasDao.getMinipasTADMForIdnummer(year, minipasTADMFromHaiba);
+
+                besCount += minipasTBESList.size();
+                admCount += minipasTADMList.size();
+
+                haibaDao.setupTransaction();
+
+                // then insert those new information in the existing/new rows
+                haibaDao.insertUpdateT_BesAndC_Indm(minipasTBESList, minipasTADMList);
+
+                haibaDao.commitTransaction();
+                if (aLog.isTraceEnabled()) {
+                    aLog.trace("doImport: committed");
+                }
+
+                // not really a minipas tadm, but a haiba t_adm, converted
+                idnummer = minipasTADMFromHaiba != null ? minipasTADMFromHaiba.get(minipasTADMFromHaiba.size() - 1).getIdnummer() : "";
+            }
+
+            String status = "year " + year + " done. updated:" + count +
+                    " from haiba resulting in " + besCount + " T_BES inserts and " + admCount + " T_ADM updates";
+            aLog.info(status);
+            currentImportProgress.addStatusLine(status);
+        }
+        haibaDao.importEnded();
+    }
+
     private boolean minipasOk(long lastReturnCodeElseNegativeOne) {
         return lastReturnCodeElseNegativeOne != -1 && lastReturnCodeElseNegativeOne <= 1;
     }
@@ -306,6 +378,7 @@ public class MinipasPreprocessor {
     }
 
     public void doManualProcess() {
-        doProcess(true);
+        doSpecialT_BesAndC_indm_Process(); // ONLY during transition
+//        doProcess(true);
     }
 }

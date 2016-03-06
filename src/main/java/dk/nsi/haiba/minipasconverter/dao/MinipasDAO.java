@@ -27,6 +27,7 @@
 package dk.nsi.haiba.minipasconverter.dao;
 
 import java.util.Collection;
+import java.util.List;
 
 import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
 import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
@@ -51,4 +52,9 @@ public interface MinipasDAO {
     public long lastReturnCodeElseNegativeOne();
 
     void reset();
+
+    List<MinipasTADM> getMinipasTADMForIdnummer(int year, List<MinipasTADM> minipasTADMFromHaiba);
+
+    List<MinipasTBES> getMinipasTBESForIdnummer(int year, List<MinipasTADM> minipasTADMFromHaiba);
+
 }

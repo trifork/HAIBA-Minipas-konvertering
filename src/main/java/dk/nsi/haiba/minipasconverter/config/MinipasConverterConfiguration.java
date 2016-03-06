@@ -36,6 +36,7 @@ import org.springframework.context.support.PropertySourcesPlaceholderConfigurer;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.jndi.JndiObjectFactoryBean;
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -107,6 +108,10 @@ public class MinipasConverterConfiguration {
     @Bean
     public JdbcTemplate minipasJdbcTemplate(@Qualifier("minipasDataSource") DataSource ds) {
         return new JdbcTemplate(ds);
+    }
+    @Bean
+    public NamedParameterJdbcTemplate namedMinipasJdbcTemplate(@Qualifier("minipasDataSource") DataSource ds) {
+        return new NamedParameterJdbcTemplate(ds);
     }
 
     @Bean

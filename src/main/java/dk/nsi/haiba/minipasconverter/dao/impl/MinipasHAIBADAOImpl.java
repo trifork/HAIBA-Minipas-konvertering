@@ -397,4 +397,41 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                 m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
                 m.getD_uddto(), m.getC_indm(), importDto, "m");
     }
+
+    @Override
+    public List<MinipasTADM> getTADMFromIdnummer(String sYear, String idnummer, int batchSize) {
+        RowMapper<MinipasTADM> rowMapper = new RowMapper<MinipasTADM>() {
+            @Override
+            public MinipasTADM mapRow(ResultSet rs, int i) throws SQLException {
+                MinipasTADM returnValue = new MinipasTADM();
+                returnValue.setIdnummer(rs.getString("V_RECNUM"));
+                // never mind the rest
+                return returnValue;
+            }
+        };
+        List<MinipasTADM> returnValue = jdbc.query("SELECT TOP " + batchSize + " * FROM " + tableprefix + "T_ADM WHERE V_RECNUM > ? ORDER BY V_RECNUM ASC", rowMapper,
+                idnummer);
+        return returnValue;
+    }
+
+    @Override
+    public void insertUpdateT_BesAndC_Indm(List<MinipasTBES> minipasTBESList, List<MinipasTADM> minipasTADMList) {
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("insertUpdateT_BesAndC_Indm: t_bes...");
+        }
+        for (MinipasTBES be : minipasTBESList) {
+            jdbc.update(
+                    "INSERT INTO " + tableprefix + "T_BES (V_RECNUM, D_AMBDTO, INDBERETNINGSDATO) VALUES (?, ?, ?)",
+                    be.getIdnummer(), be.getD_ambdto(), be.getIndberetningsdato());
+        }
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("insertUpdateT_BesAndC_Indm: c_indm...");
+        }
+        for (MinipasTADM m : minipasTADMList) {
+            jdbc.update("UPDATE " + tableprefix + "T_ADM SET C_INDM=? WHERE V_RECNUM=?", m.getC_indm(), m.getIdnummer());
+        }
+        if (aLog.isTraceEnabled()) {
+            aLog.trace("insertUpdateT_BesAndC_Indm: done");
+        }
+    }
 }

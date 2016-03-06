@@ -28,13 +28,7 @@ package dk.nsi.haiba.minipasconverter.dao.impl;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import dk.nsi.haiba.minipasconverter.model.*;
 import org.apache.log4j.Logger;
@@ -42,8 +36,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
 import org.springframework.stereotype.Repository;
 
 import com.jamonapi.Monitor;
@@ -58,6 +55,10 @@ public class MinipasDAOImpl implements MinipasDAO {
     @Autowired
     @Qualifier("minipasJdbcTemplate")
     JdbcTemplate jdbc;
+
+    @Autowired
+    @Qualifier("namedMinipasJdbcTemplate")
+    NamedParameterJdbcTemplate named_jdbc;
 
     @Value("${minipas.minipasstatustablename:T_MINIPAS_UGL_STATUS}")
     String minipasStatusTableName;
@@ -414,5 +415,64 @@ public class MinipasDAOImpl implements MinipasDAO {
             returnValue.setV_recnum(rs.getInt("V_RECNUM"));
             return returnValue;
         }
+    }
+
+    @Override
+    public List<MinipasTADM> getMinipasTADMForIdnummer(int year, List<MinipasTADM> minipasTADMFromHaiba) {
+        List<MinipasTADM> returnValue = new ArrayList<MinipasTADM>();
+        String tableName = "T_ADM" + year;
+        Set<String> idnummerSet = new HashSet<String>();
+        for (MinipasTADM minipasTADM : minipasTADMFromHaiba) {
+            idnummerSet.add(minipasTADM.getIdnummer());
+        }
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("ids", idnummerSet);
+        if (!idnummerSet.isEmpty()) {
+            List<MinipasTADM> query = named_jdbc.query("SELECT C_INDM, IDNUMMER FROM " + minipasPrefix + tableName + " WHERE IDNUMMER IN (:ids)",
+                    parameters,
+                    new RowMapper<MinipasTADM>() {
+                        @Override
+                        public MinipasTADM mapRow(ResultSet rs, int rowNum) throws SQLException {
+                            MinipasTADM returnValue = new MinipasTADM();
+                            returnValue.setC_indm(rs.getString("C_INDM"));
+                            returnValue.setIdnummer(rs.getString("IDNUMMER"));
+                            return returnValue;
+                        }
+                    });
+            returnValue.addAll(query);
+        } else {
+            if (aLog.isDebugEnabled()) {
+                aLog.debug("getMinipasTADMForIdnummer: empty idnummers from year " + year);
+            }
+        }
+        return returnValue;
+    }
+
+    @Override
+    public List<MinipasTBES> getMinipasTBESForIdnummer(int year, List<MinipasTADM> minipasTADMFromHaiba) {
+        List<MinipasTBES> returnValue = null;
+        String tableName = "T_BES" + year;
+        Set<String> idnummerSet = new HashSet<String>();
+        for (MinipasTADM minipasTADM : minipasTADMFromHaiba) {
+            idnummerSet.add(minipasTADM.getIdnummer());
+        }
+        MyMinipasTBESRowMapper rowMapper = new MyMinipasTBESRowMapper();
+        MapSqlParameterSource parameters = new MapSqlParameterSource();
+        parameters.addValue("ids", idnummerSet);
+        if (!idnummerSet.isEmpty()) {
+            try {
+                returnValue = named_jdbc.query("SELECT * FROM " + minipasPrefix + tableName + " WHERE IDNUMMER IN (:ids)",
+                        parameters, rowMapper);
+            } catch (BadSqlGrammarException e) {
+                aLog.error("unable to perform query with id's " + idnummerSet);
+                throw e;
+            }
+        } else {
+            if (aLog.isDebugEnabled()) {
+                aLog.debug("getMinipasTBESForIdnummer: empty idnummers from year " + year);
+            }
+            returnValue = new ArrayList<MinipasTBES>();
+        }
+        return returnValue;
     }
 }
