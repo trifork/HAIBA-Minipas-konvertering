@@ -26,6 +26,25 @@
  */
 package dk.nsi.haiba.minipasconverter.dao.impl;
 
+import com.jamonapi.Monitor;
+import com.jamonapi.MonitorFactory;
+import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
+import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
+import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
+import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
+import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
+import org.apache.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
+
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
@@ -35,26 +54,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import dk.nsi.haiba.minipasconverter.model.MinipasTBES;
-import org.apache.log4j.Logger;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
-import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.support.DefaultTransactionDefinition;
-
-import com.jamonapi.Monitor;
-import com.jamonapi.MonitorFactory;
-
-import dk.nsi.haiba.minipasconverter.dao.MinipasHAIBADAO;
-import dk.nsi.haiba.minipasconverter.model.MinipasTADM;
-import dk.nsi.haiba.minipasconverter.model.MinipasTDIAG;
-import dk.nsi.haiba.minipasconverter.model.MinipasTSKSUBE_OPR;
 
 public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     private static final Logger aLog = Logger.getLogger(MinipasHAIBADAOImpl.class);
@@ -147,14 +146,33 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
         Monitor mon = MonitorFactory.start("MinipasHAIBADAOImpl.createAdm");
         Date importDto = new Date();
         for (MinipasTADM m : minipasTADMs) {
-            jdbc.update(
-                    "INSERT INTO "
-                            + tableprefix
-                            + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO, C_INDM, D_IMPORTDTO, V_STATUS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
-                    m.getD_uddto(), m.getC_indm(), importDto, "a");
+            try {
+                updateT_Adm(importDto, m, "a");
+            } catch (DuplicateKeyException e) {
+                // well, that was already present. remove and try again
+                aLog.debug("createAdm: duplicate key found, reinserting key " + m.getIdnummer());
+                clearAdm(m.getIdnummer());
+                updateT_Adm(importDto, m, "a");
+
+                // this means that T_MINIPAS_SYNC already has an entry with this idnummer.
+                // blast this, else it will cause the T_ADM entry to be deleted during processing of the existing year
+                // if this year is in the future, all is good. if in the past, this means that the entry is already
+                // present in two years since we have this exception - we should be fine, but data are strange
+                List<String> dieList = new ArrayList<String>();
+                dieList.add(m.getIdnummer());
+                syncCommitDeleted(dieList);
+            }
         }
         mon.stop();
+    }
+
+    private int updateT_Adm(Date importDto, MinipasTADM m, String v_status) {
+        return jdbc.update(
+                "INSERT INTO "
+                        + tableprefix
+                        + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO, C_INDM, D_IMPORTDTO, V_STATUS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
+                m.getD_uddto(), m.getC_indm(), importDto, v_status);
     }
 
     @Override
@@ -332,17 +350,29 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
                     minipasTADM.getIdnummer(), skemaopdat.getTime(), "T_ADM" + year);
         }
         for (MinipasTADM minipasTADM : syncStructure.getUpdated()) {
-            if (aLog.isTraceEnabled()) {
-                aLog.trace("commit: updating " + minipasTADM.getSkemaopdat() + " for " + minipasTADM.getIdnummer());
+            Date skemaopdat = minipasTADM.getSkemaopdat();
+            Date skemaopret = minipasTADM.getSkemaopret();
+            Date dateToUseForSKEMAOPDAT_MS = skemaopdat;
+            if (dateToUseForSKEMAOPDAT_MS == null) {
+                // seen in march 2016
+                dateToUseForSKEMAOPDAT_MS = skemaopret;
             }
-            jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT_MS=? WHERE IDNUMMER=?", minipasTADM
-                    .getSkemaopdat().getTime(), minipasTADM.getIdnummer());
+            if (dateToUseForSKEMAOPDAT_MS == null) {
+                // just backup, never seen
+                dateToUseForSKEMAOPDAT_MS = new Date();
+            }
+
+            long time = dateToUseForSKEMAOPDAT_MS.getTime();
+            if (aLog.isTraceEnabled()) {
+                aLog.trace("commit: updating using " + dateToUseForSKEMAOPDAT_MS + " for " + minipasTADM.getIdnummer() + ", skemaopdat=" + skemaopdat);
+            }
+            jdbc.update("UPDATE " + tableprefix + "T_MINIPAS_SYNC SET SKEMAOPDAT_MS=? WHERE IDNUMMER=?", time, minipasTADM.getIdnummer());
         }
         mon.stop();
     }
 
     @Override
-    public void syncCommitDeleted(int year, Collection<String> deleted) {
+    public void syncCommitDeleted(Collection<String> deleted) {
         Monitor mon = MonitorFactory.start("MinipasSyncDAOImpl.commitDeleted");
         for (String idnummer : deleted) {
             jdbc.update("DELETE FROM " + tableprefix + "T_MINIPAS_SYNC WHERE IDNUMMER=?", idnummer);
@@ -392,10 +422,7 @@ public class MinipasHAIBADAOImpl extends CommonDAO implements MinipasHAIBADAO {
     public void reinsertAdm(MinipasTADM m) {
         clearAdm(m.getIdnummer());
         Date importDto = new Date();
-        jdbc.update("INSERT INTO " + tableprefix
-                        + "T_ADM (V_RECNUM, C_SGH, C_AFD, C_PATTYPE, V_CPR, D_INDDTO, D_UDDTO, C_INDM, D_IMPORTDTO, V_STATUS) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                m.getIdnummer(), m.getC_sgh(), m.getC_afd(), m.getC_pattype(), m.getV_cpr(), m.getD_inddto(),
-                m.getD_uddto(), m.getC_indm(), importDto, "m");
+        updateT_Adm(importDto, m, "m");
     }
 
     @Override
