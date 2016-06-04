@@ -63,7 +63,7 @@ public interface MinipasHAIBADAO {
 
     public void syncCommit(int year, MinipasSyncStructure syncStructure);
 
-    public void syncCommitDeleted(int year, Collection<String> deleted);
+    public void syncCommitDeleted(Collection<String> deleted);
 
     List<MinipasTADM> getTADMFromIdnummer(String sYear, String cpr, int batchSize);
 
