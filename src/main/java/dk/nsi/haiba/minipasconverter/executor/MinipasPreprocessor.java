@@ -56,7 +56,7 @@ import dk.nsi.haiba.minipasconverter.status.ImportStatusRepository;
 public class MinipasPreprocessor {
     private static Logger aLog = Logger.getLogger(MinipasPreprocessor.class);
 
-    @Value("${minipas.batchsize:100}")
+    @Value("${minipas.batchsize:75}")
     int batchSize;
 
     @Value("${minipas.noofretries:2}")
@@ -153,7 +153,6 @@ public class MinipasPreprocessor {
                 String stackTrace = getStackTrace(t);
                 currentImportProgress.addStatusLine(stackTrace);
                 statusRepo.importEndedWithFailure(new DateTime(), "Aborted due to error:" + stackTrace);
-                throw t;
             } finally {
                 aLog.info("Stopped processing, manual=" + manual);
                 running = false;
@@ -233,7 +232,7 @@ public class MinipasPreprocessor {
             deletedCount += deleted.size();
             // not necessary to handle in transaction - will be deleted on the next run
             handleDeleted(sYear, deleted);
-            haibaDao.syncCommitDeleted(year, deleted);
+            haibaDao.syncCommitDeleted(deleted);
             String status = "year " + year + " done. created:" + createdCount + ", updated:" + updatedCount
                     + ", deleted:" + deletedCount;
             aLog.info(status);
@@ -293,7 +292,8 @@ public class MinipasPreprocessor {
                 }
 
                 // not really a minipas tadm, but a haiba t_adm, converted
-                idnummer = minipasTADMFromHaiba != null ? minipasTADMFromHaiba.get(minipasTADMFromHaiba.size() - 1).getIdnummer() : "";
+                idnummer = (minipasTADMFromHaiba != null && !minipasTADMFromHaiba.isEmpty()) ?
+                        minipasTADMFromHaiba.get(minipasTADMFromHaiba.size() - 1).getIdnummer() : "";
             }
 
             String status = "year " + year + " done. updated:" + count +
@@ -301,6 +301,7 @@ public class MinipasPreprocessor {
             aLog.info(status);
             currentImportProgress.addStatusLine(status);
         }
+        currentImportProgress.addStatusLine("doT_BesAndC_Indm_Import done");
         haibaDao.importEnded();
     }
 
@@ -316,7 +317,9 @@ public class MinipasPreprocessor {
         for (String idnummer : deletedIdnummers) {
             haibaDao.clearAdm(idnummer);
             haibaDao.clearKoder(idnummer);
-            haibaDao.clearBes(idnummer);
+
+            // TODO: 12/03/16 reinsert when we have a functioning one time transition
+//            haibaDao.clearBes(idnummer);
             haibaDao.setDeleted(idnummer);
         }
     }
@@ -333,9 +336,10 @@ public class MinipasPreprocessor {
             Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromDiag(minipasTADM, diags);
 
-            haibaDao.clearBes(minipasTADM.getIdnummer());
-            Collection<MinipasTBES> bes = minipasDao.getMinipasBES(year, minipasTADM.getK_recnum());
-            haibaDao.createBesFromBes(minipasTADM, bes);
+            // TODO: 12/03/16 reinsert when we have a functioning one time transition
+//            haibaDao.clearBes(minipasTADM.getIdnummer());
+//            Collection<MinipasTBES> bes = minipasDao.getMinipasBES(year, minipasTADM.getK_recnum());
+//            haibaDao.createBesFromBes(minipasTADM, bes);
         }
         mon.stop();
     }
@@ -348,8 +352,9 @@ public class MinipasPreprocessor {
             haibaDao.createKoderFromSksUbeOpr(minipasTADM, ubeoprs);
             Collection<MinipasTDIAG> diags = minipasDao.getMinipasDIAG(year, minipasTADM.getK_recnum());
             haibaDao.createKoderFromDiag(minipasTADM, diags);
-            Collection<MinipasTBES> bes = minipasDao.getMinipasBES(year, minipasTADM.getK_recnum());
-            haibaDao.createBesFromBes(minipasTADM, bes);
+            // TODO: 12/03/16 reinsert when we have a functioning one time transition
+//            Collection<MinipasTBES> bes = minipasDao.getMinipasBES(year, minipasTADM.getK_recnum());
+//            haibaDao.createBesFromBes(minipasTADM, bes);
         }
         mon.stop();
     }
