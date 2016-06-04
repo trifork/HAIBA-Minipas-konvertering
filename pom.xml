@@ -4,7 +4,7 @@
         <groupId>dk.nsi.haiba</groupId>
         <artifactId>minipas-konverter</artifactId>
         <packaging>war</packaging>
-        <version>1.1-SNAPSHOT</version>
+        <version>1.1-SPECIAL_T_BES_AND_C_INDM-VERSION_2</version>
 
     <properties>
         <spring.version>3.1.1.RELEASE</spring.version>
