@@ -40,3 +40,19 @@ SET ANSI_PADDING OFF
 GO
 
 
+CREATE TABLE [TRIFORK_MINIPAS].[t_adm](
+	[contact_identification_id] [bigint] IDENTITY(1,1) NOT NULL,
+	[c_sgh] [varchar](4) NOT NULL,
+	[c_afd] [varchar](3) NOT NULL,
+	[c_pattype] [varchar](1) NOT NULL,
+	[d_inddto] [datetime] NOT NULL,
+	[d_uddto] [datetime] NULL,
+	[v_recnum] [varchar](255) NOT NULL,
+	[d_importdto] [datetime] NULL,
+	[v_status] [nvarchar](10) NULL,
+	[v_cpr] [char](10) NULL,
+	[c_indm] [varchar](50) NULL
+) ON [PRIMARY]
+
+
+
